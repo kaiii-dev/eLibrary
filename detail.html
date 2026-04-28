@@ -225,9 +225,36 @@
     }
 
     const imgSrc  = item.cover_path || item.cover_url || 'https://via.placeholder.com/400x533?text=No+Image';
-    const status  = (item.status || '').charAt(0).toUpperCase() + (item.status || '').slice(1);
+    const statusMap = { watching:'Watching', reading:'Reading', completed:'Completed', on_hold:'On Hold', dropped:'Dropped', planning:'Planning', ongoing:'Watching', hiatus:'On Hold' };
+    const status  = statusMap[item.status] || ((item.status||'').charAt(0).toUpperCase()+(item.status||'').slice(1));
     const typeStr = (item.type   || '').toUpperCase();
     const last    = item.last_chapter ? `Ch. ${item.last_chapter}` : '';
+
+    // Progress bar
+    const hasProg = item.progress_current != null;
+    const progPct = (hasProg && item.progress_total) ? Math.min(100, Math.round((item.progress_current / item.progress_total) * 100)) : null;
+    const progLabel = hasProg ? (item.progress_total ? `Ep/Ch ${item.progress_current} / ${item.progress_total}` : `Ep/Ch ${item.progress_current}`) : '';
+
+    // Rating stars
+    function renderStars(r) {
+      if (r == null) return '';
+      const full = Math.floor(r);
+      const half = (r - full) >= 0.5;
+      let s = '';
+      for (let i = 1; i <= 10; i++) {
+        if (i <= full) s += '<i class="fa-solid fa-star" style="color:#f5c518;font-size:13px"></i>';
+        else if (i === full + 1 && half) s += '<i class="fa-solid fa-star-half-stroke" style="color:#f5c518;font-size:13px"></i>';
+        else s += '<i class="fa-regular fa-star" style="color:#444;font-size:13px"></i>';
+      }
+      return `<div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap">${s} <span style="font-size:13px;color:#f5c518;margin-left:6px">${r}/10</span></div>`;
+    }
+
+    // Dates
+    function fmtDate(ts) {
+      if (!ts) return null;
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
+    }
 
     content.innerHTML = `
       <div class="hero">
@@ -238,17 +265,34 @@
           <h1 class="detail-title">${item.title || ''}</h1>
 
           <div class="chips">
-            ${typeStr   ? `<span class="chip type">${typeStr}</span>`     : ''}
-            ${item.genre? `<span class="chip">${item.genre}</span>`        : ''}
-            ${status    ? `<span class="chip status">${status}</span>`     : ''}
-            ${last      ? `<span class="chip"><i class="fa-solid fa-bookmark" style="font-size:10px"></i> ${last}</span>` : ''}
+            ${typeStr    ? `<span class="chip type">${typeStr}</span>`     : ''}
+            ${item.genre ? `<span class="chip">${item.genre}</span>`       : ''}
+            ${status     ? `<span class="chip status">${status}</span>`    : ''}
+            ${last       ? `<span class="chip"><i class="fa-solid fa-bookmark" style="font-size:10px"></i> ${last}</span>` : ''}
           </div>
 
+          ${hasProg ? `
+          <div style="margin:4px 0">
+            <div style="font-size:11px;color:#888;margin-bottom:4px">${progLabel}</div>
+            ${progPct != null ? `
+            <div style="height:6px;background:#1a1a1a;border-radius:999px;overflow:hidden">
+              <div style="height:100%;width:${progPct}%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:999px;transition:width .3s"></div>
+            </div>
+            <div style="font-size:10px;color:#555;margin-top:3px">${progPct}% complete</div>` : ''}
+          </div>` : ''}
+
+          ${item.rating != null ? `<div style="margin:4px 0">${renderStars(item.rating)}</div>` : ''}
+
           <div class="meta-row">
-            ${item.type          ? `<span><i class="fa-solid fa-layer-group"></i>${typeStr}</span>`          : ''}
-            ${item.genre         ? `<span><i class="fa-solid fa-tag"></i>${item.genre}</span>`               : ''}
-            ${item.last_chapter  ? `<span><i class="fa-solid fa-bookmark"></i>Last: Ch. ${item.last_chapter}</span>` : ''}
+            ${item.type         ? `<span><i class="fa-solid fa-layer-group"></i>${typeStr}</span>`                        : ''}
+            ${item.genre        ? `<span><i class="fa-solid fa-tag"></i>${item.genre}</span>`                              : ''}
+            ${item.last_chapter ? `<span><i class="fa-solid fa-bookmark"></i>Last: Ch. ${item.last_chapter}</span>`       : ''}
+            ${fmtDate(item.start_date)  ? `<span><i class="fa-solid fa-calendar-plus"></i>Started: ${fmtDate(item.start_date)}</span>`   : ''}
+            ${fmtDate(item.finish_date) ? `<span><i class="fa-solid fa-calendar-check"></i>Finished: ${fmtDate(item.finish_date)}</span>` : ''}
           </div>
+
+          ${item.notes ? `
+          <div style="background:#0d0d0d;border:1px solid #1c1c1c;border-radius:10px;padding:12px;font-size:13px;color:#aaa;line-height:1.6;white-space:pre-wrap">${item.notes}</div>` : ''}
 
           <div class="actions">
             <a class="btn-edit" href="edit.html?id=${item.id}">

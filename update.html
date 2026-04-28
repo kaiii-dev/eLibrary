@@ -51,7 +51,8 @@
           <th>Title</th>
           <th>Type</th>
           <th>Status</th>
-          <th>Last Chapter</th>
+          <th>Progress</th>
+          <th>Rating</th>
           <th style="width:120px">Action</th>
         </tr>
       </thead>
@@ -93,6 +94,11 @@
     function render(items){
       rows.innerHTML = "";
       items.forEach((it, i) => {
+        // Map legacy status values
+        const statusMap = { ongoing: 'watching', hiatus: 'on_hold' };
+        const currentStatus = statusMap[it.status] || it.status || 'planning';
+        const progCur = it.progress_current != null ? it.progress_current : '';
+        const progTot = it.progress_total   != null ? it.progress_total   : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${i+1}</td>
@@ -100,10 +106,18 @@
           <td>${(it.type||'').toUpperCase()}</td>
           <td>
             <select data-id="${it.id}" class="status">
-              ${['completed','ongoing','reading','hiatus'].map(s => `<option value="${s}" ${it.status===s?'selected':''}>${s}</option>`).join('')}
+              ${[['planning','Planning'],['watching','Watching'],['reading','Reading'],['completed','Completed'],['on_hold','On Hold'],['dropped','Dropped']]
+                .map(([v,l]) => `<option value="${v}" ${currentStatus===v?'selected':''}>${l}</option>`).join('')}
             </select>
           </td>
-          <td><input data-id="${it.id}" class="last" placeholder="e.g. 123" value="${it.last_chapter||''}"></td>
+          <td style="display:flex;gap:4px;align-items:center;min-width:110px">
+            <input data-id="${it.id}" class="prog-cur" type="number" min="0" placeholder="Cur" value="${progCur}" style="width:50px">
+            <span style="color:#555">/</span>
+            <input data-id="${it.id}" class="prog-tot" type="number" min="0" placeholder="Tot" value="${progTot}" style="width:50px">
+          </td>
+          <td>
+            <input data-id="${it.id}" class="rating" type="number" min="1" max="10" step="0.5" placeholder="—" value="${it.rating != null ? it.rating : ''}" style="width:60px">
+          </td>
           <td style="display:flex;gap:6px;align-items:center">
             <button data-id="${it.id}" class="save">Save</button>
             <button data-id="${it.id}" data-title="${(it.title||'').replace(/"/g,'&quot;')}" class="action-btn action-btn--delete del">🗑</button>
@@ -114,11 +128,18 @@
 
       rows.querySelectorAll('.save').forEach(b=>{
         b.addEventListener('click', async (e)=>{
-          const id = e.currentTarget.getAttribute('data-id');
-          const s  = document.querySelector(`select.status[data-id="${id}"]`).value;
-          const l  = document.querySelector(`input.last[data-id="${id}"]`).value.trim();
+          const id  = e.currentTarget.getAttribute('data-id');
+          const s   = document.querySelector(`select.status[data-id="${id}"]`).value;
+          const cur = document.querySelector(`input.prog-cur[data-id="${id}"]`).value;
+          const tot = document.querySelector(`input.prog-tot[data-id="${id}"]`).value;
+          const rat = document.querySelector(`input.rating[data-id="${id}"]`).value;
           try {
-            await updateWishlistItem(id, { status: s, last_chapter: l });
+            await updateWishlistItem(id, {
+              status:           s,
+              progress_current: cur !== '' ? Number(cur) : null,
+              progress_total:   tot !== '' ? Number(tot) : null,
+              rating:           rat !== '' ? Number(rat) : null,
+            });
             showToast('Saved!', 'success');
           } catch(err) {
             showToast(err.message || 'Failed to save', 'error');

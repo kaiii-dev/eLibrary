@@ -99,10 +99,12 @@
     <div class="filter">
       <select id="status" class="select">
         <option value="">All Status</option>
-        <option value="completed">Completed</option>
-        <option value="ongoing">Ongoing</option>
+        <option value="watching">Watching</option>
         <option value="reading">Reading</option>
-        <option value="hiatus">Hiatus</option>
+        <option value="completed">Completed</option>
+        <option value="on_hold">On Hold</option>
+        <option value="dropped">Dropped</option>
+        <option value="planning">Planning</option>
       </select>
       <button id="searchBtn" class="btn">Search</button>
     </div>
@@ -181,10 +183,22 @@
       if (!items || items.length === 0){ empty.style.display = 'block'; return; }
       empty.style.display = 'none';
 
+      const statusLabel = { watching:'Watching', reading:'Reading', completed:'Completed', on_hold:'On Hold', dropped:'Dropped', planning:'Planning', ongoing:'Watching', hiatus:'On Hold' };
+
       items.forEach(it => {
         const imgSrc = it.cover_path ? it.cover_path : (it.cover_url || 'https://via.placeholder.com/400x533?text=No+Image');
-        const status = (it.status || '').toUpperCase();
+        const status = statusLabel[it.status] || (it.status||'').toUpperCase();
         const last   = it.last_chapter ? `Ch. ${it.last_chapter}` : '';
+
+        // Progress bar
+        const hasProg = it.progress_current != null;
+        const progPct = (hasProg && it.progress_total) ? Math.min(100, Math.round((it.progress_current / it.progress_total) * 100)) : null;
+        const progText = hasProg ? (it.progress_total ? `${it.progress_current}/${it.progress_total}` : `Ep/Ch ${it.progress_current}`) : '';
+
+        // Rating
+        const ratingHtml = it.rating != null
+          ? `<span class="chip" style="color:#f5c518;border-color:#f5c51833">★ ${it.rating}</span>`
+          : '';
 
         const card = document.createElement('a');
         card.className = 'card';
@@ -198,7 +212,15 @@
               ${it.genre ? `<span class="chip">${it.genre}</span>` : ``}
               ${status ? `<span class="chip">${status}</span>` : ``}
               ${last ? `<span class="chip">${last}</span>` : ``}
+              ${ratingHtml}
             </div>
+            ${hasProg && progPct != null ? `
+            <div style="margin-top:6px">
+              <div style="height:4px;background:#1a1a1a;border-radius:999px;overflow:hidden">
+                <div style="height:100%;width:${progPct}%;background:linear-gradient(90deg,#ff4444,#ff8800);border-radius:999px"></div>
+              </div>
+              <div style="font-size:10px;color:#555;margin-top:2px">${progText}</div>
+            </div>` : ''}
           </div>
         `;
         grid.appendChild(card);

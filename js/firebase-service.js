@@ -67,24 +67,42 @@ export async function getWishlist({ q = "", type = "", status = "" } = {}) {
 
 export async function addWishlistItem(fields, coverFile) {
   const cover_path = await uploadImage("covers", coverFile);
+  const now = serverTimestamp();
   const docRef = await addDoc(await wishlistCol(), {
-    title:          fields.title          || "",
-    type:           fields.type           || "",
-    genre:          fields.genre          || "",
-    status:         fields.status         || "reading",
-    site_url:       fields.site_url       || "",
+    title:            fields.title            || "",
+    type:             fields.type             || "",
+    genre:            fields.genre            || "",
+    status:           fields.status           || "planning",
+    site_url:         fields.site_url         || "",
     cover_path,
-    preview_url:    fields.preview_url    || "",
-    preview_source: fields.preview_source || "",
-    last_chapter:   "",
-    sources:        fields.sources        || [],
-    created_at:     serverTimestamp()
+    preview_url:      fields.preview_url      || "",
+    preview_source:   fields.preview_source   || "",
+    last_chapter:     "",
+    sources:          fields.sources          || [],
+    progress_current: fields.progress_current != null ? Number(fields.progress_current) : null,
+    progress_total:   fields.progress_total   != null ? Number(fields.progress_total)   : null,
+    rating:           fields.rating           != null ? Number(fields.rating)           : null,
+    notes:            fields.notes            || "",
+    start_date:       (fields.status === 'watching' || fields.status === 'reading') ? now : null,
+    finish_date:      fields.status === 'completed' ? now : null,
+    created_at:       now,
+    updated_at:       now,
   });
   return { id: docRef.id, cover_path };
 }
 
-export async function updateWishlistItem(docId, { status, last_chapter }) {
-  await updateDoc(await wishlistDoc(docId), { status, last_chapter });
+export async function updateWishlistItem(docId, fields) {
+  const payload = { updated_at: serverTimestamp() };
+  if (fields.status     !== undefined) payload.status       = fields.status;
+  if (fields.last_chapter !== undefined) payload.last_chapter = fields.last_chapter;
+  if (fields.progress_current !== undefined) payload.progress_current = fields.progress_current != null ? Number(fields.progress_current) : null;
+  if (fields.progress_total   !== undefined) payload.progress_total   = fields.progress_total   != null ? Number(fields.progress_total)   : null;
+  if (fields.status === 'completed') payload.finish_date = serverTimestamp();
+  if (fields.status === 'watching' || fields.status === 'reading') {
+    const snap = await getDoc(await wishlistDoc(docId));
+    if (snap.exists() && !snap.data().start_date) payload.start_date = serverTimestamp();
+  }
+  await updateDoc(await wishlistDoc(docId), payload);
 }
 
 /* ── platforms ────────────────────────────────────────── */
@@ -128,11 +146,20 @@ export async function getWishlistItem(docId) {
 }
 
 export async function updateFullWishlistItem(docId, fields, newCoverFile = null) {
-  const payload = { ...fields };
+  const payload = { ...fields, updated_at: serverTimestamp() };
   if (newCoverFile) {
     const old = await getDoc(await wishlistDoc(docId));
     if (old.exists()) await tryDeleteStorageFile(old.data().cover_path);
     payload.cover_path = await uploadImage("covers", newCoverFile);
+  }
+  // Auto-set finish_date when marking completed
+  if (fields.status === 'completed' && !fields.finish_date) {
+    payload.finish_date = serverTimestamp();
+  }
+  // Auto-set start_date when first switching to in-progress
+  if ((fields.status === 'watching' || fields.status === 'reading') && !fields.start_date) {
+    const snap = await getDoc(await wishlistDoc(docId));
+    if (snap.exists() && !snap.data().start_date) payload.start_date = serverTimestamp();
   }
   await updateDoc(await wishlistDoc(docId), payload);
 }
@@ -160,18 +187,26 @@ export async function recordPlatformVisit(docId) {
 
 /* Adds a wishlist item using an external cover URL (no file upload needed) */
 export async function addWishlistItemFromUrl(fields, coverUrl) {
+  const now = serverTimestamp();
   await addDoc(await wishlistCol(), {
-    title:          fields.title          || "",
-    type:           fields.type           || "",
-    genre:          fields.genre          || "",
-    status:         fields.status         || "ongoing",
-    site_url:       fields.site_url       || "",
-    cover_path:     coverUrl              || "",
-    preview_url:    fields.preview_url    || "",
-    preview_source: fields.preview_source || "",
-    last_chapter:   "",
-    sources:        fields.sources        || [],
-    created_at:     serverTimestamp()
+    title:            fields.title            || "",
+    type:             fields.type             || "",
+    genre:            fields.genre            || "",
+    status:           fields.status           || "planning",
+    site_url:         fields.site_url         || "",
+    cover_path:       coverUrl                || "",
+    preview_url:      fields.preview_url      || "",
+    preview_source:   fields.preview_source   || "",
+    last_chapter:     "",
+    sources:          fields.sources          || [],
+    progress_current: null,
+    progress_total:   fields.progress_total   != null ? Number(fields.progress_total) : null,
+    rating:           null,
+    notes:            "",
+    start_date:       null,
+    finish_date:      fields.status === 'completed' ? now : null,
+    created_at:       now,
+    updated_at:       now,
   });
 }
 

@@ -59,19 +59,40 @@
         <input name="genre" placeholder="e.g. Action, Romance">
       </div>
       <div>
-        <label>Status / Tag</label>
+        <label>Status</label>
         <select name="status" required>
+          <option value="planning">Planning</option>
+          <option value="watching">Watching</option>
           <option value="reading">Reading</option>
-          <option value="ongoing">Ongoing</option>
           <option value="completed">Completed</option>
-          <option value="hiatus">Hiatus</option>
+          <option value="on_hold">On Hold</option>
+          <option value="dropped">Dropped</option>
         </select>
       </div>
 
       <div>
-        <label>Streaming/Webtoon Site URL (single)</label>
-        <input name="site_url" placeholder="(Optional legacy) https://...">
+        <label>Progress (Current Ep/Ch)</label>
+        <input type="number" name="progress_current" min="0" placeholder="e.g. 5">
       </div>
+      <div>
+        <label>Total Ep/Ch</label>
+        <input type="number" name="progress_total" min="0" placeholder="e.g. 24 (leave blank if unknown)">
+      </div>
+
+      <div>
+        <label>Rating (1–10)</label>
+        <input type="number" name="rating" min="1" max="10" step="0.5" placeholder="e.g. 8.5">
+      </div>
+      <div>
+        <label>Streaming/Webtoon Site URL (single)</label>
+        <input name="site_url" placeholder="(Optional) https://...">
+      </div>
+
+      <div class="row-2">
+        <label>Personal Notes</label>
+        <textarea name="notes" placeholder="Private notes about this title..." rows="2" style="width:100%;padding:10px;border-radius:10px;border:1px solid #222;background:#121212;color:#fff;outline:none;font-family:inherit;resize:vertical;"></textarea>
+      </div>
+
       <div>
         <label>Preview Source</label>
         <select name="preview_source">
@@ -190,14 +211,18 @@
       submitBtn.disabled = true; showMsg('Saving...');
       try{
         await addWishlistItem({
-          title:          form.title.value.trim(),
-          type:           form.type.value,
-          genre:          form.genre.value.trim(),
-          status:         form.status.value,
-          site_url:       form.site_url.value.trim(),
-          preview_url:    form.preview_url.value.trim(),
-          preview_source: prevSrc,
-          sources
+          title:            form.title.value.trim(),
+          type:             form.type.value,
+          genre:            form.genre.value.trim(),
+          status:           form.status.value,
+          site_url:         form.site_url.value.trim(),
+          preview_url:      form.preview_url.value.trim(),
+          preview_source:   prevSrc,
+          sources,
+          progress_current: form.progress_current.value !== '' ? Number(form.progress_current.value) : null,
+          progress_total:   form.progress_total.value   !== '' ? Number(form.progress_total.value)   : null,
+          rating:           form.rating.value            !== '' ? Number(form.rating.value)            : null,
+          notes:            form.notes.value.trim(),
         }, coverFile.files[0]);
         showToast('Saved! Redirecting...', 'success');
         setTimeout(() => { window.location.href = 'home.html'; }, 900);
