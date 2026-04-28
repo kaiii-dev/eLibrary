@@ -262,7 +262,8 @@ input.invalid,select.invalid{border-color:#f44336 !important;box-shadow:0 0 6px 
 .profile-modal {
   background: #111; border: 1px solid rgba(255,0,0,0.2);
   border-radius: 20px; padding: 28px 28px 24px;
-  width: 100%; max-width: 400px;
+  width: 100%; max-width: 500px;
+  max-height: 88vh; overflow-y: auto; scrollbar-width: thin;
   transform: scale(.94); transition: transform .2s;
 }
 .profile-overlay.active .profile-modal { transform: scale(1); }
@@ -342,6 +343,39 @@ input.invalid,select.invalid{border-color:#f44336 !important;box-shadow:0 0 6px 
   transition: color .15s, border-color .15s;
 }
 .profile-cancel:hover { color: #ccc; border-color: #555; }
+
+/* ── PROFILE STATS SECTION ───────────────────────────────── */
+.prof-stats { border-top: 1px solid rgba(255,255,255,0.07); margin-top: 20px; padding-top: 18px; }
+.prof-stats-hd { font-size: 10px; color: #555; letter-spacing: 1.5px; text-transform: uppercase; margin: 0 0 14px; }
+.prof-section-lbl { font-size: 10px; color: #555; letter-spacing: 1.5px; text-transform: uppercase; margin: 0 0 10px; }
+
+/* Quick stats */
+.prof-quickstats { display: flex; gap: 6px; margin-bottom: 18px; }
+.qs-item { flex: 1; background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 10px; padding: 10px 4px; text-align: center; }
+.qs-num { display: block; font-size: 14px; color: #fff; margin-bottom: 3px; white-space: nowrap; }
+.qs-lbl { display: block; font-size: 8px; color: #555; letter-spacing: 0.5px; }
+
+/* Genre bars */
+.genre-bars { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.genre-bar-row { display: flex; align-items: center; gap: 8px; }
+.genre-bar-lbl { font-size: 10px; color: #888; min-width: 72px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.genre-bar-track { flex: 1; height: 5px; background: #1a1a1a; border-radius: 999px; overflow: hidden; }
+.genre-bar-fill { height: 100%; background: linear-gradient(90deg,#cc0000,#ff000086); border-radius: 999px; }
+.genre-bar-count { font-size: 10px; color: #444; min-width: 14px; text-align: right; }
+
+/* Type chips */
+.type-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.type-chip { background: #111; border: 1px solid #222; border-radius: 999px; padding: 4px 10px; font-size: 10px; color: #777; }
+.type-chip span { color: #ff9999; margin-left: 4px; }
+
+/* Achievement badges */
+.achv-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+.achv-badge { background: #0d0d0d; border: 1px solid #1a1a1a; border-radius: 12px; padding: 10px 4px; text-align: center; cursor: default; }
+.achv-badge.unlocked { border-color: rgba(255,200,0,0.35); background: rgba(255,200,0,0.04); }
+.achv-badge.locked { opacity: 0.3; filter: grayscale(1); }
+.achv-icon { font-size: 22px; display: block; margin-bottom: 5px; }
+.achv-lbl { font-size: 8px; color: #888; line-height: 1.3; display: block; }
+.achv-badge.unlocked .achv-lbl { color: #ccc; }
 
 /* ── PASSWORD TOGGLE (login) ─────────────────────────────── */
 .pw-wrap{position:relative;}

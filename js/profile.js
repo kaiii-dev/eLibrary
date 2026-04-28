@@ -2,8 +2,9 @@ import { getApps, getApp, initializeApp }           from "https://www.gstatic.co
 import { getAuth, updateProfile }                    from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { getStorage, ref, uploadBytes, getDownloadURL }
                                                      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
-import { checkUsernameAvailable, claimUsername, upsertPublicProfile }
+import { checkUsernameAvailable, claimUsername, upsertPublicProfile, getStats }
                                                      from "./firebase-service.js";
+import { ACHIEVEMENTS, getUnlockedAchievements }     from "./achievements.js";
 import { firebaseConfig }                            from "./firebase-config.js";
 
 const app     = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -50,6 +51,8 @@ document.body.insertAdjacentHTML('beforeend', `
         </button>
         <button class="profile-cancel" id="profileCancel">Cancel</button>
       </div>
+
+      <div id="profileStats" class="prof-stats" style="display:none;"></div>
     </div>
   </div>
 `);
@@ -106,6 +109,78 @@ function updateNavChip(user) {
   sessionStorage.setItem('userPhoto', user.photoURL    || '');
 }
 
+/* ── Stats & Achievements ──────────────────────────────── */
+async function loadProfileStats() {
+  const statsEl = document.getElementById('profileStats');
+  if (!statsEl) return;
+  statsEl.style.display = 'block';
+  statsEl.innerHTML = '<p class="prof-stats-hd" style="color:#444;">Loading stats...</p>';
+
+  try {
+    const [stats, unlockedIds] = await Promise.all([
+      getStats(),
+      getUnlockedAchievements(),
+    ]);
+
+    const quickStats = [
+      { num: stats.totalItems,       lbl: 'Total' },
+      { num: stats.completedCount,   lbl: 'Done' },
+      { num: stats.totalHoursWatched ? `${stats.totalHoursWatched}h` : '0h', lbl: 'Watched' },
+      { num: stats.avgRating ? `${stats.avgRating}★` : '—', lbl: 'Avg' },
+      { num: stats.currentStreak,    lbl: '🔥 Streak' },
+    ];
+
+    const topGenres   = Object.entries(stats.genreBreakdown).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const maxGenre    = topGenres[0]?.[1] || 1;
+
+    const typeChipsHtml = Object.entries(stats.typeBreakdown)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([t,c])=>`<span class="type-chip">${t}<span>${c}</span></span>`)
+      .join('');
+
+    const achvHtml = ACHIEVEMENTS.map(a => {
+      const unlocked = unlockedIds.includes(a.id);
+      return `<div class="achv-badge ${unlocked?'unlocked':'locked'}" title="${a.desc}">
+        <span class="achv-icon">${a.icon}</span>
+        <span class="achv-lbl">${a.label}</span>
+      </div>`;
+    }).join('');
+
+    statsEl.innerHTML = `
+      <p class="prof-stats-hd">Stats & Achievements</p>
+
+      <div class="prof-quickstats">
+        ${quickStats.map(s=>`<div class="qs-item">
+          <span class="qs-num">${s.num}</span>
+          <span class="qs-lbl">${s.lbl}</span>
+        </div>`).join('')}
+      </div>
+
+      ${topGenres.length ? `
+        <p class="prof-section-lbl">Top Genres</p>
+        <div class="genre-bars">
+          ${topGenres.map(([g,c])=>`
+            <div class="genre-bar-row">
+              <span class="genre-bar-lbl">${g}</span>
+              <div class="genre-bar-track">
+                <div class="genre-bar-fill" style="width:${Math.round(c/maxGenre*100)}%"></div>
+              </div>
+              <span class="genre-bar-count">${c}</span>
+            </div>`).join('')}
+        </div>` : ''}
+
+      ${typeChipsHtml ? `
+        <p class="prof-section-lbl">By Type</p>
+        <div class="type-chips">${typeChipsHtml}</div>` : ''}
+
+      <p class="prof-section-lbl">Achievements (${unlockedIds.length}/${ACHIEVEMENTS.length})</p>
+      <div class="achv-grid">${achvHtml}</div>
+    `;
+  } catch(_) {
+    statsEl.innerHTML = '';
+  }
+}
+
 /* ── Open / Close ──────────────────────────────────────── */
 window.__openProfile = () => {
   const user = auth.currentUser;
@@ -119,6 +194,7 @@ window.__openProfile = () => {
 
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
+  loadProfileStats();
 };
 
 function closeProfile() {

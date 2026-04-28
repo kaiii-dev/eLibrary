@@ -6,6 +6,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL,
          deleteObject }                                        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
 import { getAuth, onAuthStateChanged }                         from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { firebaseConfig }                                       from "./firebase-config.js";
+import { checkAndUnlock }                                        from "./achievements.js";
 
 const app     = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db      = getFirestore(app);
@@ -89,6 +90,13 @@ export async function addWishlistItem(fields, coverFile) {
     updated_at:       now,
   });
   logActivity('added', { itemId: docRef.id, itemTitle: fields.title || '', itemType: fields.type || '', coverPath: cover_path }).catch(() => {});
+  // Achievement: first add
+  (async () => {
+    try {
+      const snap = await getDocs(await wishlistCol());
+      await checkAndUnlock('added', { totalCount: snap.size });
+    } catch (_) {}
+  })();
   return { id: docRef.id, cover_path };
 }
 
@@ -110,10 +118,30 @@ export async function updateWishlistItem(docId, fields) {
 
   // Log activity (fire-and-forget)
   const base = { itemId: docId, itemTitle: existing.title || '', itemType: existing.type || '', coverPath: existing.cover_path || '' };
-  if (fields.status === 'completed') logActivity('completed', base).catch(() => {});
-  else if (fields.status === 'dropped') logActivity('dropped', base).catch(() => {});
-  else if (fields.rating != null && fields.rating !== existing.rating) logActivity('rated', { ...base, rating: Number(fields.rating) }).catch(() => {});
-  else if (fields.status && fields.status !== existing.status) logActivity('status_changed', { ...base, newStatus: fields.status }).catch(() => {});
+  if (fields.status === 'completed') {
+    logActivity('completed', base).catch(() => {});
+    (async () => {
+      try {
+        const snap = await getDocs(await wishlistCol());
+        const completedCount = snap.docs.filter(d => d.data().status === 'completed').length;
+        await checkAndUnlock('completed', { completedCount });
+      } catch (_) {}
+    })();
+  } else if (fields.status === 'dropped') {
+    logActivity('dropped', base).catch(() => {});
+    checkAndUnlock('dropped', {}).catch(() => {});
+  } else if (fields.rating != null && fields.rating !== existing.rating) {
+    logActivity('rated', { ...base, rating: Number(fields.rating) }).catch(() => {});
+    (async () => {
+      try {
+        const snap = await getDocs(await wishlistCol());
+        const ratedCount = snap.docs.filter(d => d.data().rating != null).length;
+        await checkAndUnlock('rated', { ratedCount });
+      } catch (_) {}
+    })();
+  } else if (fields.status && fields.status !== existing.status) {
+    logActivity('status_changed', { ...base, newStatus: fields.status }).catch(() => {});
+  }
 }
 
 /* ── platforms ────────────────────────────────────────── */
@@ -319,6 +347,13 @@ export async function acceptFriendRequest(fromUid, fromData) {
   await setDoc(doc(db, "users", fromUid, "friends", myUid), myData);
   // Delete the request
   await deleteDoc(doc(db, "friendRequests", myUid, "from", fromUid));
+  // Achievement: first friend
+  (async () => {
+    try {
+      const fSnap = await getDocs(collection(db, "users", myUid, "friends"));
+      await checkAndUnlock('friend_added', { friendCount: fSnap.size });
+    } catch (_) {}
+  })();
 }
 
 export async function declineFriendRequest(fromUid) {
@@ -363,6 +398,24 @@ export async function logActivity(type, data) {
     newStatus: data.newStatus || '',
     timestamp: serverTimestamp(),
   });
+
+  // Update streak (fire-and-forget)
+  (async () => {
+    try {
+      const today      = new Date().toISOString().slice(0, 10);
+      const streakRef  = doc(db, "users", uid, "meta", "streak");
+      const streakSnap = await getDoc(streakRef);
+      let { lastActiveDate = '', currentStreak = 0, longestStreak = 0 } =
+        streakSnap.exists() ? streakSnap.data() : {};
+      if (lastActiveDate !== today) {
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        currentStreak = lastActiveDate === yesterday ? currentStreak + 1 : 1;
+        longestStreak = Math.max(longestStreak, currentStreak);
+        await setDoc(streakRef, { lastActiveDate: today, currentStreak, longestStreak }, { merge: true });
+        checkAndUnlock('streak', { streak: currentStreak }).catch(() => {});
+      }
+    } catch (_) {}
+  })();
 }
 
 export async function getFriendActivity(friendUid, limitCount = 15) {
@@ -439,4 +492,59 @@ export async function getFriendReviews(title) {
   return snaps
     .filter(s => s && s.exists())
     .map(s => ({ id: s.id, ...s.data() }));
+}
+
+/* ── Stats ──────────────────────────────────────────────── */
+
+export async function getStats() {
+  const uid = await getUid();
+  const [wishlistSnap, streakSnap] = await Promise.all([
+    getDocs(query(await wishlistCol(), orderBy("created_at", "desc"))),
+    getDoc(doc(db, "users", uid, "meta", "streak")),
+  ]);
+
+  const items = wishlistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const streakData = streakSnap.exists() ? streakSnap.data() : {};
+
+  const totalItems     = items.length;
+  const completedCount = items.filter(i => i.status === 'completed').length;
+  const droppedCount   = items.filter(i => i.status === 'dropped').length;
+
+  // Estimated hours watched (anime: assume 24 min/ep)
+  let totalMinutes = 0;
+  items.forEach(i => {
+    if (i.type === 'anime' && i.progress_current) {
+      totalMinutes += Number(i.progress_current) * 24;
+    }
+  });
+  const totalHoursWatched = Math.round(totalMinutes / 60);
+
+  // Genre breakdown
+  const genreBreakdown = {};
+  items.forEach(i => {
+    (i.genre || '').split(',').map(g => g.trim()).filter(Boolean).forEach(g => {
+      genreBreakdown[g] = (genreBreakdown[g] || 0) + 1;
+    });
+  });
+
+  // Avg rating
+  const rated = items.filter(i => i.rating != null);
+  const avgRating = rated.length
+    ? (rated.reduce((s, i) => s + Number(i.rating), 0) / rated.length).toFixed(1)
+    : null;
+
+  // Type breakdown
+  const typeBreakdown = {};
+  items.forEach(i => {
+    const t = i.type || 'other';
+    typeBreakdown[t] = (typeBreakdown[t] || 0) + 1;
+  });
+
+  return {
+    totalItems, completedCount, droppedCount,
+    totalHoursWatched, genreBreakdown, avgRating,
+    typeBreakdown, ratedCount: rated.length,
+    currentStreak: streakData.currentStreak || 0,
+    longestStreak: streakData.longestStreak || 0,
+  };
 }
