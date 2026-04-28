@@ -1,4 +1,59 @@
 (function(){
+  /* ── PWA: inject manifest + register service worker ── */
+  (function pwaInit() {
+    // Inject <link rel="manifest"> into <head> if not already present
+    if (!document.querySelector('link[rel="manifest"]')) {
+      const link = document.createElement('link');
+      link.rel   = 'manifest';
+      link.href  = '/manifest.json';
+      document.head.appendChild(link);
+    }
+
+    // Theme color meta
+    if (!document.querySelector('meta[name="theme-color"]')) {
+      const meta = document.createElement('meta');
+      meta.name    = 'theme-color';
+      meta.content = '#cc0000';
+      document.head.appendChild(meta);
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    }
+
+    // Install prompt handling
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn   = document.getElementById('pwaInstallBtn');
+      const btnMb = document.getElementById('pwaInstallMobile');
+      if (btn)   btn.style.display   = 'flex';
+      if (btnMb) btnMb.style.display = '';
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPrompt = null;
+      const btn   = document.getElementById('pwaInstallBtn');
+      const btnMb = document.getElementById('pwaInstallMobile');
+      if (btn)   btn.style.display   = 'none';
+      if (btnMb) btnMb.style.display = 'none';
+    });
+
+    window.pwaInstall = function() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(({ outcome }) => {
+        deferredPrompt = null;
+        if (outcome === 'accepted') {
+          const btn = document.getElementById('pwaInstallBtn');
+          if (btn) btn.style.display = 'none';
+        }
+      });
+    };
+  })();
   const page     = (location.pathname.split('/').pop() || '').toLowerCase();
   const q        = new URLSearchParams(location.search);
   const type     = (q.get('type') || '').toLowerCase();
@@ -80,6 +135,9 @@
     </div>
 
     <div class="nav-right">
+      <button id="pwaInstallBtn" onclick="pwaInstall()" title="Install App" style="display:none;align-items:center;gap:6px;padding:6px 13px;border-radius:10px;border:1px solid rgba(255,0,0,0.3);background:rgba(255,0,0,0.1);color:#ff9999;font-family:'Bungee',Arial,sans-serif;font-size:11px;cursor:pointer;transition:all .15s;">
+        <i class="fa-solid fa-download"></i> <span class="nav-install-label">Install</span>
+      </button>
       <div class="nav-user" id="navUserChip" role="button" tabindex="0" title="My Profile">
         <span class="nav-user-avatar">
           ${userPhoto
@@ -118,6 +176,9 @@
     }).join('')}
     <a id="logoutMobile" href="#" class="nav-mobile-link nav-mobile-logout">
       <i class="fa-solid fa-right-from-bracket"></i> Logout
+    </a>
+    <a id="pwaInstallMobile" href="#" onclick="event.preventDefault();pwaInstall();" class="nav-mobile-link" style="display:none;color:rgba(255,153,153,0.8);">
+      <i class="fa-solid fa-download"></i> Install App
     </a>
   `;
 

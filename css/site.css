@@ -164,6 +164,7 @@ body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee", A
   .nav-link { padding: 8px 10px; }
   .nav-user span { display: none; }
   .nav-logout-label { display: none; }
+  .nav-install-label { display: none; }
 }
 @media (max-width: 600px) {
   .nav-links { display: none; }

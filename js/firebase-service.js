@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp }                      from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, updateDoc,
+import { getFirestore, initializeFirestore, persistentLocalCache,
+         collection, addDoc, getDocs, updateDoc,
          doc, orderBy, query, serverTimestamp, deleteDoc,
          getDoc, setDoc, where, limit, writeBatch }           from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL,
@@ -9,7 +10,14 @@ import { firebaseConfig }                                       from "./firebase
 import { checkAndUnlock }                                        from "./achievements.js";
 
 const app     = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const db      = getFirestore(app);
+// Enable Firestore offline persistence so the wishlist loads without network
+const db = (() => {
+  try {
+    return initializeFirestore(app, { localCache: persistentLocalCache() });
+  } catch {
+    return getFirestore(app); // already initialized — reuse existing instance
+  }
+})();
 const storage = getStorage(app);
 const auth    = getAuth(app);
 

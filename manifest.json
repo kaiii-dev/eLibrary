@@ -1,0 +1,27 @@
+{
+  "name": "My E-Library",
+  "short_name": "E-Library",
+  "description": "Your personal anime & manga tracking library",
+  "start_url": "/home.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#cc0000",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["entertainment", "books", "lifestyle"],
+  "lang": "en"
+}
