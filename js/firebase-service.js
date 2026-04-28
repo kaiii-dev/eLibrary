@@ -39,7 +39,8 @@ function extFrom(file) {
 
 async function uploadImage(folder, file) {
   const filename   = randomFilename(extFrom(file));
-  const storageRef = ref(storage, `${folder}/${getUid()}/${filename}`);
+  const uid        = await getUid();
+  const storageRef = ref(storage, `${folder}/${uid}/${filename}`);
   await uploadBytes(storageRef, file);
   return getDownloadURL(storageRef);
 }
