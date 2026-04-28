@@ -737,7 +737,11 @@
        HELPERS
     ══════════════════════════════════════════════════ */
     async function safeFetch(url, headers={}){
-      const res = await fetch(url, { headers });
+      // Proxy MangaDex requests to avoid CORS issues
+      const fetchUrl = url.startsWith('https://api.mangadex.org')
+        ? `/api/mangadex?url=${encodeURIComponent(url)}`
+        : url;
+      const res = await fetch(fetchUrl, { headers });
       if (res.status===429) throw new Error('rate_limit');
       if (!res.ok) throw new Error(`${res.status}`);
       return res.json();
