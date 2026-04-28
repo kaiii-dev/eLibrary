@@ -4,7 +4,7 @@ import { getFirestore, collection, addDoc, getDocs, updateDoc,
          getDoc }                                              from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL,
          deleteObject }                                        from "https://www.gstatic.com/firebasejs/11.6.0/firebase-storage.js";
-import { getAuth }                                             from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged }                         from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { firebaseConfig }                                       from "./firebase-config.js";
 
 const app     = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -12,18 +12,21 @@ const db      = getFirestore(app);
 const storage = getStorage(app);
 const auth    = getAuth(app);
 
-/* ── helpers ─────────────────────────────────────────── */
+/* ── wait for Firebase Auth to restore session ───────── */
+const authReady = new Promise(resolve => {
+  const unsub = onAuthStateChanged(auth, user => { unsub(); resolve(user); });
+});
 
-function getUid() {
-  const user = auth.currentUser;
+async function getUid() {
+  const user = auth.currentUser || await authReady;
   if (!user) throw new Error('Not authenticated');
   return user.uid;
 }
 
-function wishlistCol() { return collection(db, "users", getUid(), "wishlist");  }
-function wishlistDoc(id){ return doc(db, "users", getUid(), "wishlist", id);    }
-function platformCol() { return collection(db, "users", getUid(), "platforms"); }
-function platformDoc(id){ return doc(db, "users", getUid(), "platforms", id);   }
+async function wishlistCol() { const uid = await getUid(); return collection(db, "users", uid, "wishlist");  }
+async function wishlistDoc(id){ const uid = await getUid(); return doc(db, "users", uid, "wishlist", id);    }
+async function platformCol() { const uid = await getUid(); return collection(db, "users", uid, "platforms"); }
+async function platformDoc(id){ const uid = await getUid(); return doc(db, "users", uid, "platforms", id);   }
 
 function randomFilename(ext) {
   const rand = Math.random().toString(36).slice(2, 10);
@@ -48,7 +51,7 @@ export async function getWishlist({ q = "", type = "", status = "" } = {}) {
   const type_lower = type.toLowerCase();
   const stat_lower = status.toLowerCase();
 
-  const snap  = await getDocs(query(wishlistCol(), orderBy("created_at", "desc")));
+  const snap  = await getDocs(query(await wishlistCol(), orderBy("created_at", "desc")));
   let items   = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   if (q_lower)    items = items.filter(i =>
@@ -63,7 +66,7 @@ export async function getWishlist({ q = "", type = "", status = "" } = {}) {
 
 export async function addWishlistItem(fields, coverFile) {
   const cover_path = await uploadImage("covers", coverFile);
-  const docRef = await addDoc(wishlistCol(), {
+  const docRef = await addDoc(await wishlistCol(), {
     title:          fields.title          || "",
     type:           fields.type           || "",
     genre:          fields.genre          || "",
@@ -80,13 +83,13 @@ export async function addWishlistItem(fields, coverFile) {
 }
 
 export async function updateWishlistItem(docId, { status, last_chapter }) {
-  await updateDoc(wishlistDoc(docId), { status, last_chapter });
+  await updateDoc(await wishlistDoc(docId), { status, last_chapter });
 }
 
 /* ── platforms ────────────────────────────────────────── */
 
 export async function getPlatforms(type) {
-  const snap  = await getDocs(query(platformCol(), orderBy("created_at", "desc")));
+  const snap  = await getDocs(query(await platformCol(), orderBy("created_at", "desc")));
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(p => p.type === type);
@@ -106,19 +109,19 @@ async function tryDeleteStorageFile(url) {
 }
 
 export async function deleteWishlistItem(docId) {
-  const snap = await getDoc(wishlistDoc(docId));
+  const snap = await getDoc(await wishlistDoc(docId));
   if (snap.exists()) await tryDeleteStorageFile(snap.data().cover_path);
-  await deleteDoc(wishlistDoc(docId));
+  await deleteDoc(await wishlistDoc(docId));
 }
 
 export async function deletePlatform(docId) {
-  const snap = await getDoc(platformDoc(docId));
+  const snap = await getDoc(await platformDoc(docId));
   if (snap.exists()) await tryDeleteStorageFile(snap.data().icon_path);
-  await deleteDoc(platformDoc(docId));
+  await deleteDoc(await platformDoc(docId));
 }
 
 export async function getWishlistItem(docId) {
-  const snap = await getDoc(wishlistDoc(docId));
+  const snap = await getDoc(await wishlistDoc(docId));
   if (!snap.exists()) throw new Error("Item not found");
   return { id: snap.id, ...snap.data() };
 }
@@ -126,25 +129,25 @@ export async function getWishlistItem(docId) {
 export async function updateFullWishlistItem(docId, fields, newCoverFile = null) {
   const payload = { ...fields };
   if (newCoverFile) {
-    const old = await getDoc(wishlistDoc(docId));
+    const old = await getDoc(await wishlistDoc(docId));
     if (old.exists()) await tryDeleteStorageFile(old.data().cover_path);
     payload.cover_path = await uploadImage("covers", newCoverFile);
   }
-  await updateDoc(wishlistDoc(docId), payload);
+  await updateDoc(await wishlistDoc(docId), payload);
 }
 
 export async function updatePlatform(docId, fields, newIconFile = null) {
   const payload = { ...fields };
   if (newIconFile) {
-    const old = await getDoc(platformDoc(docId));
+    const old = await getDoc(await platformDoc(docId));
     if (old.exists()) await tryDeleteStorageFile(old.data().icon_path);
     payload.icon_path = await uploadImage("icons", newIconFile);
   }
-  await updateDoc(platformDoc(docId), payload);
+  await updateDoc(await platformDoc(docId), payload);
 }
 
 export async function recordPlatformVisit(docId) {
-  const docRef = platformDoc(docId);
+  const docRef = await platformDoc(docId);
   const snap   = await getDoc(docRef);
   if (snap.exists()) {
     await updateDoc(docRef, {
@@ -156,7 +159,7 @@ export async function recordPlatformVisit(docId) {
 
 /* Adds a wishlist item using an external cover URL (no file upload needed) */
 export async function addWishlistItemFromUrl(fields, coverUrl) {
-  await addDoc(wishlistCol(), {
+  await addDoc(await wishlistCol(), {
     title:          fields.title          || "",
     type:           fields.type           || "",
     genre:          fields.genre          || "",
@@ -173,7 +176,7 @@ export async function addWishlistItemFromUrl(fields, coverUrl) {
 
 export async function addPlatform(fields, iconFile) {
   const icon_path = await uploadImage("icons", iconFile);
-  const docRef = await addDoc(platformCol(), {
+  const docRef = await addDoc(await platformCol(), {
     type:        fields.type     || "streaming",
     name:        fields.name     || "",
     url:         fields.url      || "",
