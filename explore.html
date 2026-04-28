@@ -246,21 +246,6 @@
   <nav id="app-nav"></nav>
   <script src="js/nav.js" defer></script>
 
-  <!-- TMDB setup -->
-  <div class="setup-overlay" id="tmdbSetup" style="display:none">
-    <div class="setup-card">
-      <h2>TMDB API Setup</h2>
-      <p>
-        Movies are powered by TMDB (The Movie Database) — free, no credit card needed.<br><br>
-        1. Sign up at <a href="https://www.themoviedb.org/signup" target="_blank">themoviedb.org</a><br>
-        2. Go to <strong>Settings → API → Create → Developer</strong><br>
-        3. Copy your <strong>API Read Access Token</strong> (the long one) and paste below
-      </p>
-      <input class="setup-input" id="tmdbTokenInput" placeholder="Paste your TMDB Read Access Token..." />
-      <button class="setup-btn" id="tmdbSaveBtn">Save &amp; Load Movies</button>
-      <button class="setup-skip" id="tmdbSkipBtn">Skip — switch to another tab</button>
-    </div>
-  </div>
 
   <!-- Detail modal -->
   <div class="mal-overlay" id="detailModal">
@@ -349,10 +334,7 @@
     ══════════════════════════════════════════════════ */
     const JIKAN_BASE = 'https://api.jikan.moe/v4';
     const MDX_BASE   = 'https://api.mangadex.org';
-    const TMDB_BASE  = 'https://api.themoviedb.org/3';
     const TMDB_IMG   = 'https://image.tmdb.org/t/p/w500';
-
-    let tmdbToken = localStorage.getItem('tmdb_token') || '';
 
     const TMDB_GENRES = {
       28:'Action',12:'Adventure',16:'Animation',35:'Comedy',80:'Crime',
@@ -430,10 +412,6 @@
         activeTab = btn.dataset.tab;
         qInput.value = '';
         buildFilters();
-        if (activeTab === 'movies' && !tmdbToken) {
-          document.getElementById('tmdbSetup').style.display = 'flex';
-          return;
-        }
         resetFetch();
       });
     });
@@ -445,22 +423,6 @@
 
     filterSel.addEventListener('change', () => { resetFetch(); });
 
-    /* ══════════════════════════════════════════════════
-       TMDB SETUP
-    ══════════════════════════════════════════════════ */
-    document.getElementById('tmdbSaveBtn').addEventListener('click', () => {
-      const val = document.getElementById('tmdbTokenInput').value.trim();
-      if (!val) return;
-      tmdbToken = val;
-      localStorage.setItem('tmdb_token', val);
-      document.getElementById('tmdbSetup').style.display = 'none';
-      resetFetch();
-    });
-    document.getElementById('tmdbSkipBtn').addEventListener('click', () => {
-      document.getElementById('tmdbSetup').style.display = 'none';
-      // switch back to anime
-      document.querySelector('[data-tab="anime"]').click();
-    });
 
     /* ══════════════════════════════════════════════════
        FETCH ORCHESTRATOR
@@ -598,28 +560,22 @@
       if (loading) return;
       loading = true; setSearching(true);
       if (!append) showSkeletons();
-      const filter = filterSel.value || 'popular';
+      const filter    = filterSel.value || 'popular';
       const filterLbl = filterSel.options[filterSel.selectedIndex]?.text || '';
       try {
         let url;
         if (q) {
-          url = `${TMDB_BASE}/search/movie?query=${enc(q)}&page=${curPage}&language=en-US`;
+          url = `/api/tmdb?path=search/movie&query=${enc(q)}&page=${curPage}&language=en-US`;
           sectionLbl.textContent = `Movies — "${q}"`;
         } else {
-          url = `${TMDB_BASE}/movie/${filter}?page=${curPage}&language=en-US`;
+          url = `/api/tmdb?path=movie/${filter}&page=${curPage}&language=en-US`;
           sectionLbl.textContent = `Movies — ${filterLbl}`;
         }
-        const data  = await safeFetch(url, { 'Authorization': `Bearer ${tmdbToken}` });
+        const data  = await safeFetch(url);
         const items = (data.results||[]).map(normalizeTMDB);
         hasNext = curPage < (data.total_pages||1);
         renderItems(items, append);
-      } catch(e){
-        if (e.message?.includes('401')){
-          showState('fa-key','Invalid TMDB token. <button onclick="document.getElementById(\'tmdbSetup\').style.display=\'flex\'" style="background:none;border:none;color:#ff7777;cursor:pointer;font-family:inherit;font-size:13px;padding:0">Update token</button>');
-          return;
-        }
-        handleErr(e, append);
-      }
+      } catch(e){ handleErr(e, append); }
       finally{ loading=false; setSearching(false); }
     }
 
