@@ -606,10 +606,12 @@ function slugify(title) {
   return (title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'untitled';
 }
 
-export async function submitReview(title, { rating, text }) {
+export async function submitReview(title, { rating, text }, itemId = null) {
   const uid = await getUid();
   const me  = auth.currentUser;
   const slug = slugify(title);
+
+  // Save to public reviews collection
   await setDoc(doc(db, "reviews", slug, "entries", uid), {
     uid,
     username: me.displayName || me.email || '',
@@ -618,6 +620,14 @@ export async function submitReview(title, { rating, text }) {
     text:     text   || '',
     timestamp: serverTimestamp(),
   });
+
+  // Sync rating back to the wishlist item so both are always in sync
+  if (itemId) {
+    await updateDoc(await wishlistDoc(itemId), {
+      rating:     rating != null ? Number(rating) : null,
+      updated_at: serverTimestamp(),
+    });
+  }
 }
 
 export async function getMyReview(title) {

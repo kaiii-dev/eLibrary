@@ -463,7 +463,7 @@
           await submitReview(item.title, {
             rating: rating !== '' ? Number(rating) : null,
             text
-          });
+          }, docId);
           showToast('Review saved!', 'success');
         } catch(err) {
           showToast(err.message || 'Failed to save review.', 'error');
