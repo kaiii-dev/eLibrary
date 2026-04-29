@@ -137,11 +137,49 @@
 
     // ── TMDB ID lookup ───────────────────────────────────
     async function getTmdbId(title, type) {
-      const res  = await fetch(`${TMDB_BASE}?path=search/multi&query=${encodeURIComponent(title)}`);
-      if (!res.ok) throw new Error('TMDB error');
-      const data = await res.json();
-      const hit  = data.results?.[0];
-      return hit?.id ?? null;
+      const isMovie = type === 'movie';
+      const searchPath = isMovie ? 'search/movie' : 'search/tv';
+
+      // Helper: pick best match (exact title preferred over first result)
+      function bestHit(results) {
+        if (!results?.length) return null;
+        const norm = title.toLowerCase().trim();
+        const exact = results.find(r =>
+          (r.title || r.name || '').toLowerCase().trim() === norm ||
+          (r.original_title || r.original_name || '').toLowerCase().trim() === norm
+        );
+        return exact || results[0];
+      }
+
+      // 1st try: search/tv or search/movie
+      try {
+        const res  = await fetch(`${TMDB_BASE}?path=${searchPath}&query=${encodeURIComponent(title)}`);
+        if (res.ok) {
+          const data = await res.json();
+          const hit  = bestHit(data.results);
+          if (hit?.id) return hit.id;
+        }
+      } catch(_) {}
+
+      // 2nd try (anime only): get canonical English title from Jikan, re-search TMDB
+      if (!isMovie) {
+        try {
+          const jRes  = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(title)}&limit=1`);
+          const jData = await jRes.json();
+          const anime = jData.data?.[0];
+          const altTitle = anime?.title_english || anime?.title;
+          if (altTitle && altTitle.toLowerCase().trim() !== title.toLowerCase().trim()) {
+            const res2  = await fetch(`${TMDB_BASE}?path=search/tv&query=${encodeURIComponent(altTitle)}`);
+            if (res2.ok) {
+              const data2 = await res2.json();
+              const hit2  = bestHit(data2.results);
+              if (hit2?.id) return hit2.id;
+            }
+          }
+        } catch(_) {}
+      }
+
+      return null;
     }
 
     // ── Embed URL builders ───────────────────────────────
