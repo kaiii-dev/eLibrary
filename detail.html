@@ -149,8 +149,41 @@
   </div>
 
   <script type="module">
-    import { getWishlistItem, deleteWishlistItem, submitReview, getMyReview, getFriendReviews } from "./js/firebase-service.js";
+    import { getWishlistItem, deleteWishlistItem, submitReview, getMyReview, getFriendReviews, updateWishlistItem } from "./js/firebase-service.js";
     import { showToast } from "./js/toast.js";
+
+    const JIKAN = 'https://api.jikan.moe/v4';
+    const TMDB  = '/api/tmdb';
+
+    // Auto-fetch YouTube trailer ID from Jikan or TMDB
+    async function fetchTrailerYtId(title, type) {
+      // Anime → Jikan trailer
+      if (type === 'anime') {
+        try {
+          const res  = await fetch(`${JIKAN}/anime?q=${encodeURIComponent(title)}&limit=1`);
+          const data = await res.json();
+          const ytId = data.data?.[0]?.trailer?.youtube_id;
+          if (ytId) return ytId;
+        } catch(_) {}
+      }
+      // Manga/manhwa/etc → no trailer source, skip
+      if (['manga','manhwa','manhua','novel'].includes(type)) return null;
+      // Movie / TV-show / anime fallback → TMDB videos
+      try {
+        const searchPath = type === 'movie' ? 'search/movie' : 'search/tv';
+        const sRes  = await fetch(`${TMDB}?path=${searchPath}&query=${encodeURIComponent(title)}`);
+        const sData = await sRes.json();
+        const hit   = sData.results?.[0];
+        if (!hit?.id) return null;
+        const mediaType = type === 'movie' ? 'movie' : 'tv';
+        const vRes  = await fetch(`${TMDB}?path=${mediaType}/${hit.id}/videos`);
+        const vData = await vRes.json();
+        const yt    = vData.results?.find(v => v.site === 'YouTube' && v.type === 'Trailer')
+                   || vData.results?.find(v => v.site === 'YouTube');
+        return yt?.key || null;
+      } catch(_) {}
+      return null;
+    }
 
     const params = new URLSearchParams(location.search);
     const docId  = params.get('id');
@@ -181,31 +214,96 @@
     }
 
     function renderPreview(item){
-      if (!item.preview_url) return '';
-      const src = item.preview_source || '';
-      let embedUrl = null;
-      if (src === 'youtube' || (!src && /youtu/i.test(item.preview_url))) {
-        embedUrl = youtubeEmbedUrl(item.preview_url);
-      }
-      if (embedUrl) {
+      // Skip for manga/manhwa/manhua/novel — no video trailers
+      if (['manga','manhwa','manhua','novel'].includes(item.type)) return '';
+
+      // If manual preview_url is set, embed it directly
+      if (item.preview_url) {
+        const src = item.preview_source || '';
+        let embedUrl = null;
+        if (src === 'youtube' || (!src && /youtu/i.test(item.preview_url))) {
+          embedUrl = youtubeEmbedUrl(item.preview_url);
+        }
+        if (embedUrl) {
+          return `
+            <div class="section">
+              <p class="section-title"><i class="fa-brands fa-youtube" style="color:#ff4444"></i> Trailer</p>
+              <div class="embed-wrap">
+                <iframe src="${embedUrl}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+              </div>
+            </div>`;
+        }
+        const icon  = src === 'tiktok' ? 'fa-brands fa-tiktok' : 'fa-brands fa-youtube';
+        const label = src === 'tiktok' ? 'Watch on TikTok' : 'Watch Preview';
         return `
           <div class="section">
             <p class="section-title"><i class="fa-solid fa-play"></i> Preview / Trailer</p>
-            <div class="embed-wrap">
-              <iframe src="${embedUrl}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-            </div>
+            <a class="preview-link" href="${item.preview_url}" target="_blank" rel="noopener">
+              <i class="${icon}"></i> ${label}
+            </a>
           </div>`;
       }
-      // Fallback: open link
-      const icon = src === 'tiktok' ? 'fa-brands fa-tiktok' : 'fa-brands fa-youtube';
-      const label = src === 'tiktok' ? 'Watch on TikTok' : 'Watch Preview';
+
+      // No manual URL — show placeholder, auto-fetch in background
       return `
-        <div class="section">
-          <p class="section-title"><i class="fa-solid fa-play"></i> Preview / Trailer</p>
-          <a class="preview-link" href="${item.preview_url}" target="_blank" rel="noopener">
-            <i class="${icon}"></i> ${label}
-          </a>
+        <div class="section" id="trailerSection">
+          <p class="section-title"><i class="fa-brands fa-youtube" style="color:#ff4444"></i> Trailer</p>
+          <div id="trailerSlot">
+            <div style="color:#333;font-size:11px;display:flex;align-items:center;gap:8px;padding:4px 0;">
+              <i class="fa-solid fa-circle-notch fa-spin"></i> Looking for trailer…
+            </div>
+          </div>
         </div>`;
+    }
+
+    // Called after DOM renders — fills #trailerSlot with auto-fetched trailer or manual input
+    async function loadTrailer(item) {
+      const slot = document.getElementById('trailerSlot');
+      if (!slot) return; // manual URL already rendered inline
+
+      const ytId = await fetchTrailerYtId(item.title, item.type);
+
+      if (ytId) {
+        slot.innerHTML = `
+          <div class="embed-wrap">
+            <iframe src="https://www.youtube.com/embed/${ytId}?rel=0&modestbranding=1"
+              allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+            </iframe>
+          </div>`;
+        return;
+      }
+
+      // Not found — show manual add form
+      slot.innerHTML = `
+        <div style="font-size:11px;color:#444;margin-bottom:10px;">No trailer found automatically.</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="manualTrailerUrl" placeholder="Paste YouTube URL…"
+            style="flex:1;min-width:200px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:8px;
+                   padding:8px 10px;color:#fff;font-family:'Bungee',sans-serif;font-size:10px;outline:none;">
+          <button id="btnSaveTrailer"
+            style="padding:8px 14px;border-radius:8px;border:none;background:rgba(255,0,0,.15);
+                   border:1px solid rgba(255,0,0,.3);color:#ff9999;font-family:'Bungee',sans-serif;
+                   font-size:10px;cursor:pointer;">
+            <i class="fa-solid fa-floppy-disk"></i> Save
+          </button>
+        </div>`;
+
+      document.getElementById('btnSaveTrailer').addEventListener('click', async () => {
+        const url = document.getElementById('manualTrailerUrl').value.trim();
+        if (!url) return;
+        const embedUrl = youtubeEmbedUrl(url);
+        if (!embedUrl) { showToast('Invalid YouTube URL', 'error'); return; }
+        try {
+          await updateWishlistItem(docId, { preview_url: url, preview_source: 'youtube' });
+          slot.innerHTML = `
+            <div class="embed-wrap">
+              <iframe src="${embedUrl}?rel=0&modestbranding=1"
+                allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+              </iframe>
+            </div>`;
+          showToast('Trailer saved!', 'success');
+        } catch(e) { showToast('Failed to save trailer.', 'error'); }
+      });
     }
 
     function renderSources(item){
@@ -334,6 +432,9 @@
       ${renderPreview(item)}
       ${renderSources(item)}
     `;
+
+    // Auto-load trailer in background (fills #trailerSlot if rendered)
+    loadTrailer(item);
 
     // Delete
     document.getElementById('deleteBtn').addEventListener('click', () => {
