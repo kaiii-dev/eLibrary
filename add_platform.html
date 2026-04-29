@@ -146,7 +146,7 @@
         await addPlatform({
           type:     t,
           name:     f.name.value.trim(),
-          url:      f.url.value.trim(),
+          url:      (() => { const u = f.url.value.trim(); return /^https?:\/\//i.test(u) ? u : `https://${u}`; })(),
           language: f.language.value,
           notes:    f.notes.value.trim(),
           tags,
