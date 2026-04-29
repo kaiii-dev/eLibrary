@@ -279,6 +279,44 @@ export async function addPlatform(fields, iconFile) {
   return { id: docRef.id, icon_path };
 }
 
+/* ── One-time migration: user platforms → community ──────── */
+
+export async function migrateUserPlatformsToCommunity() {
+  const uid  = await getUid();
+  const snap = await getDocs(await platformCol());
+  if (snap.empty) return 0;
+
+  let migrated = 0;
+  for (const d of snap.docs) {
+    const p    = d.data();
+    const url  = p.url || '';
+    if (!url) continue;
+
+    const safeUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    const norm    = safeUrl.replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+
+    // Skip if already exists in community collection
+    const dup = await getDocs(query(communityCol(), where('url_norm', '==', norm)));
+    if (!dup.empty) continue;
+
+    const domain = norm.split('/')[0];
+    await addDoc(communityCol(), {
+      type:         p.type        || 'streaming',
+      name:         p.name        || '',
+      url:          safeUrl,
+      url_norm:     norm,
+      tags:         p.tags        || [],
+      icon_path:    p.icon_path   || `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+      visit_count:  p.visit_count || 0,
+      last_visited: p.last_visited || null,
+      created_by:   uid,
+      created_at:   p.created_at  || serverTimestamp(),
+    });
+    migrated++;
+  }
+  return migrated;
+}
+
 /* ── Community platforms (shared, root collection) ────────── */
 
 function normUrl(url) {

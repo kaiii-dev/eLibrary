@@ -170,6 +170,13 @@
 
     <!-- ── Sources tab ────────────────────────────────── -->
     <div id="tab-sources" style="display:none;">
+      <!-- Migration banner (hidden by default, shown if old data exists) -->
+      <div id="migrateBanner" style="display:none;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.25);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:none;align-items:center;gap:12px;flex-wrap:wrap;">
+        <i class="fa-solid fa-box-archive" style="color:#ffd54f;"></i>
+        <span style="font-size:11px;color:#ccc;flex:1;">You have old platform data — migrate it to the community list so it's visible to everyone.</span>
+        <button id="btnMigrate" style="padding:6px 16px;border-radius:8px;border:none;background:#ffd54f;color:#000;font-family:'Bungee',sans-serif;font-size:10px;cursor:pointer;">Migrate</button>
+      </div>
+
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
         <div class="src-subtabs" id="srcSubtabs" style="margin-bottom:0;">
           <button class="src-subtab active" data-src="streaming">Streaming</button>
@@ -235,7 +242,8 @@
     import {
       getWishlist,
       getCommunityPlatforms, addCommunityPlatform, updateCommunityPlatform,
-      deleteCommunityPlatform, recordCommunityVisit, getCurrentUid
+      deleteCommunityPlatform, recordCommunityVisit, getCurrentUid,
+      migrateUserPlatformsToCommunity
     } from './js/firebase-service.js';
 
     let currentUid = null;
@@ -263,7 +271,7 @@
         document.getElementById('tab-streaming').style.display = tab === 'streaming' ? '' : 'none';
         document.getElementById('tab-reading').style.display   = tab === 'reading'   ? '' : 'none';
         document.getElementById('tab-sources').style.display   = tab === 'sources'   ? '' : 'none';
-        if (tab === 'sources' && !srcLoaded) loadSources('streaming');
+        if (tab === 'sources' && !srcLoaded) { loadSources('streaming'); checkMigrationNeeded(); }
       });
     });
 
@@ -690,6 +698,32 @@
         srcModalErr.style.display = 'block';
       } finally {
         saveBtn.textContent = 'Save'; saveBtn.disabled = false;
+      }
+    });
+
+    // ── Migration banner ─────────────────────────────────────
+    async function checkMigrationNeeded() {
+      try {
+        const { getPlatforms } = await import('./js/firebase-service.js');
+        const old = await getPlatforms('streaming');
+        const old2 = await getPlatforms('webtoon');
+        if (old.length + old2.length > 0) {
+          document.getElementById('migrateBanner').style.display = 'flex';
+        }
+      } catch(_) {}
+    }
+
+    document.getElementById('btnMigrate').addEventListener('click', async () => {
+      const btn = document.getElementById('btnMigrate');
+      btn.textContent = 'Migrating…'; btn.disabled = true;
+      try {
+        const count = await migrateUserPlatformsToCommunity();
+        document.getElementById('migrateBanner').style.display = 'none';
+        loadSources(currentSrcType);
+        alert(`Migrated ${count} platform${count !== 1 ? 's' : ''} to community list.`);
+      } catch(e) {
+        alert('Migration failed: ' + e.message);
+        btn.textContent = 'Migrate'; btn.disabled = false;
       }
     });
 
