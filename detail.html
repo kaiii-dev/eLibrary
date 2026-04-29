@@ -392,10 +392,17 @@
       html += `
         <div style="background:#0d0d0d;border:1px solid #1c1c1c;border-radius:12px;padding:16px;margin-bottom:14px;">
           <div style="font-size:11px;color:#666;margin-bottom:10px;">YOUR REVIEW</div>
-          <div style="margin-bottom:10px;">
-            <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">Rating (1–10)</label>
-            <input id="myRating" type="number" min="1" max="10" step="0.5" placeholder="e.g. 8.5" value="${myReview?.rating ?? ''}"
-              style="background:#121212;border:1px solid #222;border-radius:8px;color:#fff;padding:8px 10px;width:100px;font-family:inherit;outline:none;">
+          <div style="margin-bottom:12px;">
+            <label style="font-size:11px;color:#888;display:block;margin-bottom:8px;">Rating</label>
+            <div id="starPicker" style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+              ${Array.from({length:10}, (_,i) => `
+                <i class="fa-${(myReview?.rating ?? 0) > i ? 'solid' : 'regular'} fa-star star-pick"
+                  data-val="${i+1}"
+                  style="font-size:22px;cursor:pointer;color:${(myReview?.rating ?? 0) > i ? '#f5c518' : '#333'};transition:color .1s;"></i>
+              `).join('')}
+              <span id="starLabel" style="font-size:11px;color:#f5c518;margin-left:8px;">${myReview?.rating != null ? `${myReview.rating}/10` : ''}</span>
+            </div>
+            <input type="hidden" id="myRating" value="${myReview?.rating ?? ''}">
           </div>
           <div style="margin-bottom:12px;">
             <label style="font-size:11px;color:#888;display:block;margin-bottom:4px;">Review</label>
@@ -414,6 +421,37 @@
       }
 
       reviewsWrap.innerHTML = html;
+
+      // ── Star picker interaction ───────────────────────────
+      const stars    = document.querySelectorAll('.star-pick');
+      const ratingIn = document.getElementById('myRating');
+      const starLabel = document.getElementById('starLabel');
+
+      function paintStars(val) {
+        stars.forEach((s, i) => {
+          const filled = i < val;
+          s.className   = `fa-${filled ? 'solid' : 'regular'} fa-star star-pick`;
+          s.style.color = filled ? '#f5c518' : '#333';
+        });
+        starLabel.textContent = val ? `${val}/10` : '';
+      }
+
+      stars.forEach(s => {
+        // Hover preview
+        s.addEventListener('mouseenter', () => paintStars(+s.dataset.val));
+        s.addEventListener('mouseleave', () => paintStars(+ratingIn.value || 0));
+        // Click to set (click same value again to clear)
+        s.addEventListener('click', () => {
+          const val = +s.dataset.val;
+          if (+ratingIn.value === val) {
+            ratingIn.value = '';
+            paintStars(0);
+          } else {
+            ratingIn.value = val;
+            paintStars(val);
+          }
+        });
+      });
 
       document.getElementById('saveReviewBtn').addEventListener('click', async (e) => {
         const btn = e.currentTarget;
