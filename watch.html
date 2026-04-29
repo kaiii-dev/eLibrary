@@ -119,11 +119,7 @@
 
       updateMarkBtn();
 
-      // Season selector for TV/anime
       const isMovie = item.type === 'movie';
-      if (!isMovie) {
-        buildSeasonSelect();
-      }
 
       // Show episode grid if we know total
       if (totalEps > 0 && !isMovie) {
@@ -144,9 +140,9 @@
 
       if (tmdbId) {
         loadEmbed('primary');
-        // Fetch episode count from TMDB if not set by user
-        if (!isMovie && totalEps === 0) {
-          fetchTmdbEpisodeCount(tmdbId, curSeason);
+        if (!isMovie) {
+          fetchTmdbSeasons(tmdbId);
+          if (totalEps === 0) fetchTmdbEpisodeCount(tmdbId, curSeason);
         }
       } else {
         setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'Could not find this title in the video database. Try YouTube Trailer below.');
@@ -411,16 +407,27 @@
     }
 
     // ── Season select ─────────────────────────────────────
-    function buildSeasonSelect() {
+    function buildSeasonSelect(numSeasons = 1) {
       const sel = document.getElementById('seasonSelect');
-      // default up to 5 seasons; could be fetched from TMDB if needed
-      for (let i = 1; i <= 5; i++) {
+      sel.innerHTML = '';
+      for (let i = 1; i <= numSeasons; i++) {
         const opt = document.createElement('option');
         opt.value = i;
         opt.textContent = `Season ${i}`;
         sel.appendChild(opt);
       }
-      sel.style.display = '';
+      // Only show if more than 1 season
+      sel.style.display = numSeasons > 1 ? '' : 'none';
+    }
+
+    async function fetchTmdbSeasons(id) {
+      try {
+        const res  = await fetch(`${TMDB_BASE}?path=tv/${id}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const num  = data.number_of_seasons || 1;
+        buildSeasonSelect(num);
+      } catch(_) {}
     }
 
     window.onSeasonChange = function() {
