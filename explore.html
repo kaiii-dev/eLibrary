@@ -993,6 +993,14 @@
     ══════════════════════════════════════════════════ */
     searchBtn.addEventListener('click', () => { curPage=1; curOffset=0; doLoad(false); });
     qInput.addEventListener('keydown', e => { if(e.key==='Enter'){ curPage=1; curOffset=0; doLoad(false); } });
+
+    // Live search — 500 ms debounce (external API, avoid hammering)
+    let _searchTimer;
+    qInput.addEventListener('input', () => {
+      if (['trending','seasonal'].includes(activeTab)) return; // no search on these tabs
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(() => { curPage=1; curOffset=0; doLoad(false); }, 500);
+    });
     loadMoreBtn.addEventListener('click', () => {
       if (['manhwa','manhua','manga'].includes(activeTab)) { doLoad(true); }
       else { curPage++; doLoad(true); }
