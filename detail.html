@@ -90,10 +90,13 @@
     /* Preview embed */
     .embed-wrap{
       position:relative; width:100%; aspect-ratio:16/9;
-      border-radius:14px; overflow:hidden;
+      border-radius:14px;
       background:#0a0a0a; border:1px solid #1c1c1c;
     }
-    .embed-wrap iframe{ position:absolute; inset:0; width:100%; height:100%; border:none; }
+    .embed-wrap iframe{
+      position:absolute; inset:0; width:100%; height:100%; border:none;
+      border-radius:14px;
+    }
 
     /* Preview link fallback */
     .preview-link{
@@ -229,7 +232,9 @@
             <div class="section">
               <p class="section-title"><i class="fa-brands fa-youtube" style="color:#ff4444"></i> Trailer</p>
               <div class="embed-wrap">
-                <iframe src="${embedUrl}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
+                <iframe src="${embedUrl}"
+                  allowfullscreen webkitallowfullscreen mozallowfullscreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"></iframe>
               </div>
             </div>`;
         }
@@ -276,7 +281,8 @@
             slot.innerHTML = `
               <div class="embed-wrap">
                 <iframe src="${embedUrl}?rel=0&modestbranding=1"
-                  allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+                  allowfullscreen webkitallowfullscreen mozallowfullscreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen">
                 </iframe>
               </div>`;
             showToast('Trailer saved!', 'success');
@@ -303,7 +309,7 @@
       if (ytId) {
         // Render embed wrapper + hidden geo-block fallback
         slot.innerHTML = `
-          <div id="ytEmbedWrap" style="position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#0a0a0a;border:1px solid #1c1c1c;">
+          <div id="ytEmbedWrap" style="position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;background:#0a0a0a;border:1px solid #1c1c1c;">
             <div id="ytPlayer" style="position:absolute;inset:0;width:100%;height:100%;"></div>
           </div>
           <div id="ytGeoBlock" style="display:none;margin-top:10px;padding:14px;background:#0d0d0d;border:1px solid #1c1c1c;border-radius:12px;">
@@ -335,8 +341,22 @@
           videoId: ytId,
           width: '100%',
           height: '100%',
-          playerVars: { rel: 0, modestbranding: 1 },
+          playerVars: { rel: 0, modestbranding: 1, fs: 1, playsinline: 1 },
           events: {
+            onReady: (e) => {
+              // Patch iframe attributes so mobile browsers allow fullscreen + landscape
+              const iframe = e.target.getIframe();
+              if (iframe) {
+                iframe.setAttribute('allowfullscreen', 'true');
+                iframe.setAttribute('webkitallowfullscreen', 'true');
+                iframe.setAttribute('mozallowfullscreen', 'true');
+                const cur = iframe.getAttribute('allow') || '';
+                if (!cur.includes('fullscreen')) {
+                  iframe.setAttribute('allow', cur + '; fullscreen');
+                }
+                iframe.style.borderRadius = '14px';
+              }
+            },
             onError: (e) => {
               // 100 = removed, 101/150 = embedding disabled or geo-blocked
               if ([100, 101, 150].includes(e.data)) {
