@@ -112,6 +112,8 @@
           <button class="watch-srv-btn active" id="srv1"  onclick="switchServer(1)">Server 1</button>
           <button class="watch-srv-btn"        id="srv2"  onclick="switchServer(2)">Server 2</button>
           <button class="watch-srv-btn"        id="srv3"  onclick="switchServer(3)">Server 3</button>
+          <button class="watch-srv-btn"        id="srv5"  onclick="switchServer(5)">Server 4</button>
+          <button class="watch-srv-btn"        id="srv6"  onclick="switchServer(6)">Server 5</button>
           <button class="watch-srv-btn"        id="srv4"  onclick="switchServer(4)" style="display:none"><i class="fa-solid fa-dragon"></i> Anime</button>
           <div class="dub-toggle" id="dubToggle" style="display:none">
             <button class="dub-btn active" id="btnSub" onclick="setDub(false)">SUB</button>
@@ -407,6 +409,18 @@
       return `https://www.2embed.cc/embedtv/${id}&s=${season}&e=${ep}`;
     }
 
+    function buildVidlinkUrl(id, type, season, ep) {
+      if (!id) return null;
+      if (type === 'movie') return `https://vidlink.pro/movie/${id}`;
+      return `https://vidlink.pro/tv/${id}/${season}/${ep}`;
+    }
+
+    function buildAutoEmbedUrl(id, type, season, ep) {
+      if (!id) return null;
+      if (type === 'movie') return `https://autoembed.cc/movie/tmdb/${id}`;
+      return `https://autoembed.cc/tv/tmdb/${id}/${season}/${ep}`;
+    }
+
     function buildMegaplayUrl(mId, ep, dub) {
       if (!mId) return null;
       return `https://megaplay.buzz/stream/mal/${mId}/${ep}/${dub ? 'dub' : 'sub'}`;
@@ -424,10 +438,12 @@
     function loadEmbed(mode) {
       srcMode = mode;
       let url = null;
-      if (mode === 'primary') url = buildEmbedUrl(tmdbId, item.type, curSeason, curEp);
-      if (mode === 'alt')     url = buildAltUrl(tmdbId, item.type, curSeason, curEp);
-      if (mode === 'alt2')    url = build2EmbedUrl(tmdbId, item.type, curSeason, curEp);
-      if (mode === 'anime')   url = buildMegaplayUrl(malId, curEp, isDub);
+      if (mode === 'primary')  url = buildEmbedUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'alt')      url = buildAltUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'alt2')     url = build2EmbedUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'vidlink')  url = buildVidlinkUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'autoembed') url = buildAutoEmbedUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'anime')    url = buildMegaplayUrl(malId, curEp, isDub);
 
       if (!url) {
         setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'No video source available for this title.');
@@ -514,6 +530,8 @@
       if (num === 2) { document.getElementById('srv2').classList.add('active'); loadEmbed('alt'); }
       if (num === 3) { document.getElementById('srv3').classList.add('active'); loadEmbed('alt2'); }
       if (num === 4) { document.getElementById('srv4').classList.add('active'); loadEmbed('anime'); }
+      if (num === 5) { document.getElementById('srv5').classList.add('active'); loadEmbed('vidlink'); }
+      if (num === 6) { document.getElementById('srv6').classList.add('active'); loadEmbed('autoembed'); }
     };
 
     // Sub/Dub toggle for megaplay anime server
