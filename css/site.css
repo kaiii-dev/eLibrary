@@ -591,12 +591,18 @@ input.invalid,select.invalid{border-color:#f44336 !important;box-shadow:0 0 6px 
 .ep-page-btn:hover { color:#ccc; }
 .ep-page-btn.active { color:#fff; border-bottom-color:#cc0000; }
 
-.ep-grid { display:flex; flex-wrap:wrap; gap:6px; }
+.ep-grid {
+  display:flex; flex-direction:column; gap:4px;
+  max-height:380px; overflow-y:auto; padding-right:6px;
+}
+.ep-grid::-webkit-scrollbar { width:4px; }
+.ep-grid::-webkit-scrollbar-track { background:transparent; }
+.ep-grid::-webkit-scrollbar-thumb { background:#333; border-radius:4px; }
 .ep-btn  {
-  width:46px; height:38px; border-radius:8px; border:1px solid #222;
+  width:100%; padding:10px 14px; border-radius:8px; border:1px solid #222;
   background:transparent; color:rgba(255,255,255,.5); font-family:"Bungee",Arial,sans-serif;
   font-size:11px; cursor:pointer; transition:all .15s; display:flex;
-  align-items:center; justify-content:center;
+  align-items:center; text-align:left;
 }
 .ep-btn:hover   { color:#fff; border-color:#555; background:#111; }
 .ep-btn.current { background:#cc0000; border-color:#cc0000; color:#fff; }
