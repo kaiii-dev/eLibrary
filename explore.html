@@ -583,8 +583,15 @@
         if (q) {
           url  = `${JIKAN_BASE}/anime?q=${enc(q)}&page=${curPage}&limit=24&sfw${genreParam}`;
           sectionLbl.textContent = `Anime — "${q}"`;
+        } else if (selectedGenres.size) {
+          // /top/anime ignores genres param — use /anime endpoint which supports it
+          const orderMap = { '':'score', airing:'score', upcoming:'start_date', bypopularity:'members', favorite:'favorites', movie:'score', tv:'score', ova:'score' };
+          const typeParam   = ['movie','tv','ova'].includes(filter) ? `&type=${filter}` : '';
+          const statusParam = filter==='airing' ? '&status=airing' : filter==='upcoming' ? '&status=upcoming' : '';
+          url  = `${JIKAN_BASE}/anime?page=${curPage}&limit=24&sfw${genreParam}&order_by=${orderMap[filter]||'score'}&sort=desc${typeParam}${statusParam}`;
+          sectionLbl.textContent = `Anime — ${filterLbl}`;
         } else {
-          url  = `${JIKAN_BASE}/top/anime?page=${curPage}&limit=24${filter?'&filter='+filter:''}${genreParam}`;
+          url  = `${JIKAN_BASE}/top/anime?page=${curPage}&limit=24${filter?'&filter='+filter:''}`;
           sectionLbl.textContent = `Anime — ${filterLbl}`;
         }
         data = await safeFetch(url);
@@ -751,14 +758,17 @@
       const filter     = filterSel.value || 'popular';
       const filterLbl  = filterSel.options[filterSel.selectedIndex]?.text || '';
       const genreParam = selectedGenres.size ? `&with_genres=${[...selectedGenres].join(',')}` : '';
+      // Map filter dropdown → discover sort_by (always use discover so genre filter works)
+      const sortByMap  = { popular:'popularity.desc', top_rated:'vote_average.desc', now_playing:'primary_release_date.desc', upcoming:'primary_release_date.asc' };
+      const sortBy     = sortByMap[filter] || 'popularity.desc';
+      const voteGuard  = filter === 'top_rated' ? '&vote_count.gte=200' : '';
       try {
         let url;
         if (q) {
           url = `/api/tmdb?path=search/movie&query=${enc(q)}&page=${curPage}&language=en-US${genreParam}`;
           sectionLbl.textContent = `Movies — "${q}"`;
         } else {
-          url = `/api/tmdb?path=discover/movie&sort_by=popularity.desc&page=${curPage}&language=en-US${genreParam}`;
-          if (!selectedGenres.size) url = `/api/tmdb?path=movie/${filter}&page=${curPage}&language=en-US`;
+          url = `/api/tmdb?path=discover/movie&sort_by=${sortBy}&page=${curPage}&language=en-US${genreParam}${voteGuard}`;
           sectionLbl.textContent = `Movies — ${filterLbl}`;
         }
         const data  = await safeFetch(url);
