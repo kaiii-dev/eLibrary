@@ -102,14 +102,9 @@
     .chip{ background:#181818; border:1px solid #252525; border-radius:999px; padding:2px 8px; font-size:10px; color:#777; }
     .chip.red{ color:#ff9999; border-color:rgba(255,0,0,0.2); background:rgba(255,0,0,0.07); }
 
-    /* load more */
-    .load-wrap{ text-align:center; margin-top:28px; }
-    .load-btn{
-      background:transparent; border:1px solid #2a2a2a; color:#777; padding:11px 36px;
-      border-radius:12px; font-family:"Bungee",Arial,sans-serif; font-size:12px; cursor:pointer;
-      transition:border-color .15s, color .15s;
-    }
-    .load-btn:hover{ border-color:#555; color:#fff; }
+    /* scroll loader */
+    .scroll-loader{ text-align:center; padding:24px 20px; color:#444; font-size:11px; display:none; }
+    .scroll-loader i{ margin-right:7px; }
 
     /* state */
     .state{ text-align:center; padding:70px 20px; color:var(--muted); }
@@ -338,9 +333,8 @@
     <p class="section-label" id="sectionLabel">Top Anime</p>
     <div id="grid" class="grid"></div>
     <div id="stateEl" class="state" style="display:none"></div>
-    <div class="load-wrap">
-      <button class="load-btn" id="loadMoreBtn" style="display:none">Load More</button>
-    </div>
+    <div class="scroll-loader" id="scrollLoader"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading more...</div>
+    <div id="scrollSentinel" style="height:1px;"></div>
   </div>
 
   <script>
@@ -454,7 +448,8 @@
     const grid           = document.getElementById('grid');
     const stateEl        = document.getElementById('stateEl');
     const sectionLbl     = document.getElementById('sectionLabel');
-    const loadMoreBtn    = document.getElementById('loadMoreBtn');
+    const scrollLoader   = document.getElementById('scrollLoader');
+    const scrollSentinel = document.getElementById('scrollSentinel');
     const searchBtn      = document.getElementById('searchBtn');
     const qInput         = document.getElementById('q');
     const filterSel      = document.getElementById('filterSel');
@@ -579,7 +574,7 @@
     async function loadJikan(append, q){
       if (loading) return;
       loading = true; setSearching(true);
-      if (!append) showSkeletons();
+      if (!append) showSkeletons(); else showScrollLoader();
       const filter = filterSel.value;
       const filterLbl = filterSel.options[filterSel.selectedIndex]?.text || '';
       const genreParam = selectedGenres.size ? `&genres=${[...selectedGenres].join(',')}` : '';
@@ -597,13 +592,13 @@
         hasNext = data.pagination?.has_next_page || false;
         renderItems(items, append);
       } catch(e){ handleErr(e, append); }
-      finally{ loading=false; setSearching(false); }
+      finally{ loading=false; setSearching(false); hideScrollLoader(); }
     }
 
     async function loadSeasonal(append){
       if (loading) return;
       loading = true; setSearching(false);
-      if (!append) showSkeletons();
+      if (!append) showSkeletons(); else showScrollLoader();
       sectionLbl.textContent = `${activeSeason.charAt(0).toUpperCase()+activeSeason.slice(1)} ${activeYear} Anime`;
       try {
         const url  = `${JIKAN_BASE}/seasons/${activeYear}/${activeSeason}?limit=24`;
@@ -612,13 +607,13 @@
         hasNext = data.pagination?.has_next_page || false;
         renderItems(items, append);
       } catch(e){ handleErr(e, append); }
-      finally{ loading=false; }
+      finally{ loading=false; hideScrollLoader(); }
     }
 
     async function loadTrending(){
       grid.innerHTML = '';
       hideState();
-      loadMoreBtn.style.display = 'none';
+      hideScrollLoader();
       sectionLbl.textContent = 'Trending This Week';
 
       // Load all three in parallel, render in sections
@@ -696,7 +691,7 @@
     async function loadMDX(append, q){
       if (loading) return;
       loading = true; setSearching(true);
-      if (!append) showSkeletons();
+      if (!append) showSkeletons(); else showScrollLoader();
       const lang   = TABS[activeTab].lang;
       const sort   = filterSel.value || 'followedCount';
       const tabLbl = document.querySelector('.tab.active')?.textContent.trim() || '';
@@ -718,7 +713,7 @@
         curOffset += items.length;
         renderItems(items, append);
       } catch(e){ handleErr(e, append); }
-      finally{ loading=false; setSearching(false); }
+      finally{ loading=false; setSearching(false); hideScrollLoader(); }
     }
 
     function normalizeMDX(it, tab){
@@ -752,7 +747,7 @@
     async function loadTMDB(append, q){
       if (loading) return;
       loading = true; setSearching(true);
-      if (!append) showSkeletons();
+      if (!append) showSkeletons(); else showScrollLoader();
       const filter     = filterSel.value || 'popular';
       const filterLbl  = filterSel.options[filterSel.selectedIndex]?.text || '';
       const genreParam = selectedGenres.size ? `&with_genres=${[...selectedGenres].join(',')}` : '';
@@ -771,7 +766,7 @@
         hasNext = curPage < (data.total_pages||1);
         renderItems(items, append);
       } catch(e){ handleErr(e, append); }
-      finally{ loading=false; setSearching(false); }
+      finally{ loading=false; setSearching(false); hideScrollLoader(); }
     }
 
     function normalizeTMDB(it){
@@ -818,7 +813,6 @@
         card.addEventListener('click', () => openModal(it));
         grid.appendChild(card);
       });
-      loadMoreBtn.style.display = hasNext ? 'inline-block' : 'none';
     }
 
     /* ══════════════════════════════════════════════════
@@ -906,7 +900,7 @@
       if (!append) grid.innerHTML = '';
       if (e.message==='rate_limit') showState('fa-clock','Too many requests — wait a moment and try again.');
       else showState('fa-circle-exclamation', `Error: ${e.message}`);
-      loadMoreBtn.style.display = 'none';
+      hideScrollLoader();
     }
 
     function showSkeletons(){
@@ -924,6 +918,8 @@
     }
     function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function enc(s){ return encodeURIComponent(s||''); }
+    function showScrollLoader(){ scrollLoader.style.display = 'block'; }
+    function hideScrollLoader(){ scrollLoader.style.display = 'none'; }
 
     /* ══════════════════════════════════════════════════
        MORE LIKE THIS
@@ -1001,10 +997,15 @@
       clearTimeout(_searchTimer);
       _searchTimer = setTimeout(() => { curPage=1; curOffset=0; doLoad(false); }, 500);
     });
-    loadMoreBtn.addEventListener('click', () => {
-      if (['manhwa','manhua','manga'].includes(activeTab)) { doLoad(true); }
-      else { curPage++; doLoad(true); }
-    });
+
+    // Infinite scroll — trigger next page when sentinel enters viewport
+    const scrollObserver = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasNext && !loading) {
+        if (['manhwa','manhua','manga'].includes(activeTab)) { doLoad(true); }
+        else { curPage++; doLoad(true); }
+      }
+    }, { rootMargin: '300px' }); // start loading 300px before sentinel is reached
+    scrollObserver.observe(scrollSentinel);
 
     /* ══════════════════════════════════════════════════
        INIT
