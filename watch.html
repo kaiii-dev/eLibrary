@@ -8,9 +8,63 @@
   <link href="css/site.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
   <script src="https://kit.fontawesome.com/3c6e6d7c17.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     :root{ --bg:#000; --accent:#ff000086; --text:#fff; }
     body{ margin:0; background:var(--bg); color:var(--text); font-family:"Bungee",Arial,sans-serif; min-height:100vh; }
+
+    /* Subtitle display bar — sits directly below the player */
+    .sub-display{
+      background:#0a0a0a; border:1px solid #1a1a1a; border-top:none;
+      border-radius:0 0 12px 12px; min-height:38px;
+      display:flex; align-items:center; justify-content:center;
+      padding:8px 16px; text-align:center;
+    }
+    .sub-display span{
+      font-size:15px; color:#fff; line-height:1.6;
+      font-family:Arial,sans-serif; font-weight:600;
+      text-shadow:0 1px 4px rgba(0,0,0,.9);
+      white-space:pre-wrap;
+    }
+
+    /* Subtitle control bar */
+    .sub-bar{
+      background:#0d0d0d; border:1px solid #1a1a1a; border-radius:10px;
+      padding:10px 14px; margin-top:10px; font-size:11px;
+    }
+    .sub-bar-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+    .sub-bar-row:last-child{ margin-bottom:0; }
+    .sub-label{ font-size:10px; color:#555; white-space:nowrap; }
+    .sub-lang-btn{
+      padding:4px 12px; border-radius:7px; border:1px solid #2a2a2a;
+      background:#1a1a1a; color:#777; font-family:"Bungee",Arial,sans-serif;
+      font-size:10px; cursor:pointer; transition:all .15s;
+    }
+    .sub-lang-btn:hover{ color:#fff; border-color:#555; }
+    .sub-lang-btn.active{ background:rgba(255,0,0,.12); border-color:rgba(255,0,0,.35); color:#ff9999; }
+    .sub-ctrl-btn{
+      padding:4px 10px; border-radius:7px; border:1px solid #2a2a2a;
+      background:#111; color:#888; font-family:"Bungee",Arial,sans-serif;
+      font-size:9px; cursor:pointer; transition:all .15s;
+    }
+    .sub-ctrl-btn:hover{ color:#fff; border-color:#555; }
+    .sub-ctrl-btn.go{ background:rgba(0,180,0,.1); border-color:rgba(0,180,0,.3); color:#6f6; }
+    .sub-ctrl-btn.go:hover{ background:rgba(0,180,0,.2); }
+    .sub-status{ font-size:10px; color:#555; }
+    .sub-status.ok{ color:#4caf50; }
+    .sub-status.err{ color:#f44; }
+
+    /* Dub/Sub toggle */
+    .dub-toggle{
+      display:inline-flex; border:1px solid #2a2a2a; border-radius:8px;
+      overflow:hidden; margin-left:4px;
+    }
+    .dub-btn{
+      padding:4px 12px; border:none; background:#1a1a1a; color:#666;
+      font-family:"Bungee",Arial,sans-serif; font-size:10px; cursor:pointer;
+      transition:all .15s;
+    }
+    .dub-btn.active{ background:rgba(255,0,0,.15); color:#fff; }
   </style>
 </head>
 <body>
@@ -43,6 +97,11 @@
         </div>
       </div>
 
+      <!-- Subtitle display (below player) -->
+      <div class="sub-display" id="subDisplay" style="display:none">
+        <span id="subText"></span>
+      </div>
+
       <!-- Server bar -->
       <div class="watch-server-bar" id="serverBar">
         <div class="watch-server-msg" id="serverMsg">
@@ -53,7 +112,38 @@
           <button class="watch-srv-btn active" id="srv1"  onclick="switchServer(1)">Server 1</button>
           <button class="watch-srv-btn"        id="srv2"  onclick="switchServer(2)">Server 2</button>
           <button class="watch-srv-btn"        id="srv3"  onclick="switchServer(3)">Server 3</button>
+          <button class="watch-srv-btn"        id="srv4"  onclick="switchServer(4)" style="display:none"><i class="fa-solid fa-dragon"></i> Anime</button>
+          <div class="dub-toggle" id="dubToggle" style="display:none">
+            <button class="dub-btn active" id="btnSub" onclick="setDub(false)">SUB</button>
+            <button class="dub-btn"        id="btnDub" onclick="setDub(true)">DUB</button>
+          </div>
           <button class="watch-srv-btn"        id="srvYT" onclick="tryYouTube()"><i class="fa-brands fa-youtube"></i> Trailer</button>
+        </div>
+      </div>
+
+      <!-- Subtitle bar -->
+      <div class="sub-bar" id="subBar" style="display:none">
+        <div class="sub-bar-row">
+          <span class="sub-label">SUBTITLES:</span>
+          <button class="sub-lang-btn" onclick="searchSubs('en')">EN</button>
+          <button class="sub-lang-btn" onclick="searchSubs('id')">ID</button>
+          <button class="sub-lang-btn" onclick="searchSubs('ar')">AR</button>
+          <button class="sub-lang-btn" onclick="searchSubs('fr')">FR</button>
+          <button class="sub-lang-btn" onclick="searchSubs('es')">ES</button>
+          <span class="sub-status" id="subStatus">Pick a language to load subtitles.</span>
+        </div>
+        <div class="sub-bar-row" id="subFileRow" style="display:none">
+          <span class="sub-label">FILE:</span>
+          <div id="subFileList" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+        <div class="sub-bar-row" id="subTimerRow" style="display:none">
+          <span class="sub-label">SYNC:</span>
+          <button class="sub-ctrl-btn go" id="btnSubStart" onclick="toggleSubSync()"><i class="fa-solid fa-play"></i> Start</button>
+          <button class="sub-ctrl-btn" onclick="adjustSub(-5)">-5s</button>
+          <button class="sub-ctrl-btn" onclick="adjustSub(-0.5)">-0.5s</button>
+          <button class="sub-ctrl-btn" onclick="adjustSub(0.5)">+0.5s</button>
+          <button class="sub-ctrl-btn" onclick="adjustSub(5)">+5s</button>
+          <button class="sub-ctrl-btn" onclick="resetSubSync()"><i class="fa-solid fa-rotate-left"></i> Reset</button>
         </div>
       </div>
 
@@ -97,9 +187,18 @@
 
     let item       = null;  // wishlist doc
     let tmdbId     = null;
+    let malId      = null;  // for megaplay anime server
+    let isDub      = false; // sub/dub toggle for anime server
     let curEp      = 1;
     let curSeason  = 1;
     let totalEps   = 0;
+
+    // Subtitle state
+    let subCues      = [];   // [{start, end, text}]
+    let subInterval  = null;
+    let subRunning   = false;
+    let subStartEpoch= null;
+    let subOffset    = 0;    // manual timing adjustment in seconds
 
     // ── Season parser ─────────────────────────────────────
     function parseSeasonFromTitle(title) {
@@ -175,6 +274,17 @@
         }
       } else {
         setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'Could not find this title in the video database. Try YouTube Trailer below.');
+      }
+
+      // Show subtitle bar for all types
+      document.getElementById('subBar').style.display = '';
+
+      // Fetch MAL ID for anime — enables Anime server (megaplay)
+      if (item.type === 'anime') {
+        getMalId(item.title).then(id => {
+          malId = id;
+          if (id) document.getElementById('srv4').style.display = '';
+        });
       }
     }
 
@@ -297,6 +407,19 @@
       return `https://www.2embed.cc/embedtv/${id}&s=${season}&e=${ep}`;
     }
 
+    function buildMegaplayUrl(mId, ep, dub) {
+      if (!mId) return null;
+      return `https://megaplay.buzz/stream/mal/${mId}/${ep}/${dub ? 'dub' : 'sub'}`;
+    }
+
+    async function getMalId(title) {
+      try {
+        const res  = await fetch(`${JIKAN_BASE}/anime?q=${encodeURIComponent(title)}&limit=1`);
+        const data = await res.json();
+        return data.data?.[0]?.mal_id || null;
+      } catch(_) { return null; }
+    }
+
     // ── Load iframe ──────────────────────────────────────
     function loadEmbed(mode) {
       srcMode = mode;
@@ -304,6 +427,7 @@
       if (mode === 'primary') url = buildEmbedUrl(tmdbId, item.type, curSeason, curEp);
       if (mode === 'alt')     url = buildAltUrl(tmdbId, item.type, curSeason, curEp);
       if (mode === 'alt2')    url = build2EmbedUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'anime')   url = buildMegaplayUrl(malId, curEp, isDub);
 
       if (!url) {
         setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'No video source available for this title.');
@@ -379,11 +503,23 @@
 
     // ── Server switcher ──────────────────────────────────
     window.switchServer = function(num) {
-      if (!tmdbId) { showFallbackHint(); return; }
+      if (num !== 4 && !tmdbId) { showFallbackHint(); return; }
+      if (num === 4 && !malId)  { showFallbackHint(); return; }
       document.querySelectorAll('.watch-srv-btn').forEach(b => b.classList.remove('active'));
+      const dubToggle = document.getElementById('dubToggle');
+      dubToggle.style.display = num === 4 ? 'inline-flex' : 'none';
       if (num === 1) { document.getElementById('srv1').classList.add('active'); loadEmbed('primary'); }
       if (num === 2) { document.getElementById('srv2').classList.add('active'); loadEmbed('alt'); }
       if (num === 3) { document.getElementById('srv3').classList.add('active'); loadEmbed('alt2'); }
+      if (num === 4) { document.getElementById('srv4').classList.add('active'); loadEmbed('anime'); }
+    };
+
+    // Sub/Dub toggle for megaplay anime server
+    window.setDub = function(dub) {
+      isDub = dub;
+      document.getElementById('btnSub').classList.toggle('active', !dub);
+      document.getElementById('btnDub').classList.toggle('active',  dub);
+      if (srcMode === 'anime') loadEmbed('anime');
     };
 
     // ── Mark watched ─────────────────────────────────────
@@ -401,7 +537,7 @@
           updateMarkBtn();
           updateServerMsg();
           updatePrevNextBtns();
-          if (tmdbId) loadEmbed(['primary','alt','alt2'].includes(srcMode) ? srcMode : 'primary');
+          if (tmdbId || malId) loadEmbed(['primary','alt','alt2','anime'].includes(srcMode) ? srcMode : 'primary');
           if (totalEps > 0) refreshEpGrid();
         } else {
           document.getElementById('btnMark').innerHTML = '<i class="fa-solid fa-check-double"></i> Marked!';
@@ -638,6 +774,159 @@
     function showError(msg) {
       document.getElementById('loadingState').innerHTML =
         `<div style="color:#c00;padding:20px;font-size:12px;">${msg}</div>`;
+    }
+
+    /* ══════════════════════════════════════════════════
+       SUBTITLES (SubDL)
+    ══════════════════════════════════════════════════ */
+    function setSubStatus(msg, cls='') {
+      const el = document.getElementById('subStatus');
+      el.textContent = msg;
+      el.className   = 'sub-status' + (cls ? ' '+cls : '');
+    }
+
+    window.searchSubs = async function(lang) {
+      // Mark active lang button
+      document.querySelectorAll('.sub-lang-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.sub-lang-btn').forEach(b => {
+        if (b.textContent === lang.toUpperCase()) b.classList.add('active');
+      });
+
+      setSubStatus('Searching…');
+      document.getElementById('subFileRow').style.display = 'none';
+      document.getElementById('subTimerRow').style.display = 'none';
+
+      try {
+        let url = `/api/subdl?action=search&lang=${lang}`;
+        if (tmdbId) {
+          const type = item.type === 'movie' ? 'movie' : 'tv';
+          url += `&tmdb_id=${tmdbId}&type=${type}`;
+          if (type === 'tv') url += `&season=${curSeason}&episode=${curEp}`;
+        } else {
+          url += `&title=${encodeURIComponent(item.title)}`;
+        }
+
+        const res  = await fetch(url);
+        const data = await res.json();
+        const subs = data.subtitles || [];
+        if (!subs.length) { setSubStatus('No subtitles found for this language.', 'err'); return; }
+
+        setSubStatus(`${subs.length} subtitle(s) found.`, 'ok');
+        const listEl = document.getElementById('subFileList');
+        listEl.innerHTML = '';
+        subs.slice(0, 6).forEach((s, i) => {
+          const btn = document.createElement('button');
+          btn.className   = 'sub-ctrl-btn';
+          btn.textContent = s.release_name ? s.release_name.slice(0, 30) : `File ${i+1}`;
+          btn.title       = s.release_name || '';
+          btn.onclick     = () => loadSubFile(s.url, btn);
+          listEl.appendChild(btn);
+        });
+        document.getElementById('subFileRow').style.display = '';
+      } catch(e) {
+        setSubStatus('Search failed. Check SUBDL_KEY in Vercel env vars.', 'err');
+      }
+    };
+
+    window.loadSubFile = async function(path, btn) {
+      document.querySelectorAll('#subFileList .sub-ctrl-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      setSubStatus('Downloading subtitle…');
+      resetSubSync();
+
+      try {
+        const res = await fetch(`/api/subdl?action=download&path=${encodeURIComponent(path)}`);
+        if (!res.ok) throw new Error(res.status);
+        const buffer = await res.arrayBuffer();
+
+        const zip   = await JSZip.loadAsync(buffer);
+        // Find first .srt or .ass file
+        const names = Object.keys(zip.files);
+        const srtName = names.find(n => n.toLowerCase().endsWith('.srt'))
+                     || names.find(n => n.toLowerCase().endsWith('.ass'))
+                     || names.find(n => n.toLowerCase().endsWith('.ssa'));
+        if (!srtName) { setSubStatus('No SRT/ASS file found in ZIP.', 'err'); return; }
+
+        const text = await zip.files[srtName].async('string');
+        subCues = parseSRT(text);
+        if (!subCues.length) { setSubStatus('Could not parse subtitle file.', 'err'); return; }
+
+        setSubStatus(`Loaded ${subCues.length} cues. Press Start when video plays.`, 'ok');
+        document.getElementById('subTimerRow').style.display = '';
+        document.getElementById('subDisplay').style.display = '';
+      } catch(e) {
+        setSubStatus(`Download failed: ${e.message}`, 'err');
+      }
+    };
+
+    // SRT parser
+    function parseSRT(text) {
+      const cues   = [];
+      const clean  = text.replace(/\r\n/g, '\n').replace(/^\uFEFF/, ''); // strip BOM
+      const blocks = clean.trim().split(/\n{2,}/);
+      for (const block of blocks) {
+        const lines = block.split('\n');
+        const timeLine = lines.find(l => l.includes('-->'));
+        if (!timeLine) continue;
+        const m = timeLine.match(/(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})/);
+        if (!m) continue;
+        const textLines = lines.slice(lines.indexOf(timeLine) + 1).join('\n').replace(/<[^>]+>/g, '').trim();
+        if (!textLines) continue;
+        cues.push({ start: srtTime(m[1]), end: srtTime(m[2]), text: textLines });
+      }
+      return cues;
+    }
+    function srtTime(t) {
+      const [h, m, s] = t.replace(',', '.').split(':');
+      return parseFloat(h) * 3600 + parseFloat(m) * 60 + parseFloat(s);
+    }
+
+    // Timer sync controls
+    window.toggleSubSync = function() {
+      if (subRunning) {
+        pauseSubSync();
+      } else {
+        startSubSync();
+      }
+    };
+
+    function startSubSync() {
+      if (!subCues.length) return;
+      if (!subStartEpoch) subStartEpoch = Date.now();
+      subRunning = true;
+      document.getElementById('btnSubStart').innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+      document.getElementById('btnSubStart').classList.add('go');
+      if (subInterval) clearInterval(subInterval);
+      subInterval = setInterval(tickSubtitle, 100);
+    }
+
+    function pauseSubSync() {
+      subRunning = false;
+      subOffset -= (Date.now() - subStartEpoch) / 1000; // save elapsed
+      subStartEpoch = null;
+      if (subInterval) { clearInterval(subInterval); subInterval = null; }
+      document.getElementById('btnSubStart').innerHTML = '<i class="fa-solid fa-play"></i> Resume';
+    }
+
+    window.resetSubSync = function() {
+      subRunning = false; subStartEpoch = null; subOffset = 0;
+      if (subInterval) { clearInterval(subInterval); subInterval = null; }
+      document.getElementById('subText').textContent = '';
+      document.getElementById('subDisplay').style.display = subCues.length ? '' : 'none';
+      document.getElementById('btnSubStart').innerHTML = '<i class="fa-solid fa-play"></i> Start';
+    };
+
+    window.adjustSub = function(delta) {
+      subOffset += delta;
+      // Show feedback
+      setSubStatus(`Offset: ${subOffset >= 0 ? '+' : ''}${subOffset.toFixed(1)}s`, 'ok');
+    };
+
+    function tickSubtitle() {
+      if (!subRunning || !subStartEpoch) return;
+      const elapsed = (Date.now() - subStartEpoch) / 1000 - subOffset;
+      const cue     = subCues.find(c => elapsed >= c.start && elapsed <= c.end);
+      document.getElementById('subText').textContent = cue ? cue.text : '';
     }
 
     // Boot
