@@ -50,8 +50,9 @@
         </div>
         <div class="watch-server-btns">
           <span class="watch-server-label">SERVER:</span>
-          <button class="watch-srv-btn active" id="srv1" onclick="switchServer(1)">Server 1</button>
-          <button class="watch-srv-btn"        id="srv2" onclick="switchServer(2)">Server 2</button>
+          <button class="watch-srv-btn active" id="srv1"  onclick="switchServer(1)">Server 1</button>
+          <button class="watch-srv-btn"        id="srv2"  onclick="switchServer(2)">Server 2</button>
+          <button class="watch-srv-btn"        id="srv3"  onclick="switchServer(3)">Server 3</button>
           <button class="watch-srv-btn"        id="srvYT" onclick="tryYouTube()"><i class="fa-brands fa-youtube"></i> Trailer</button>
         </div>
       </div>
@@ -290,12 +291,19 @@
       return `https://vidsrc.net/embed/tv?tmdb=${id}&season=${season}&episode=${ep}`;
     }
 
+    function build2EmbedUrl(id, type, season, ep) {
+      if (!id) return null;
+      if (type === 'movie') return `https://www.2embed.cc/embed/${id}`;
+      return `https://www.2embed.cc/embedtv/${id}&s=${season}&e=${ep}`;
+    }
+
     // ── Load iframe ──────────────────────────────────────
     function loadEmbed(mode) {
       srcMode = mode;
       let url = null;
       if (mode === 'primary') url = buildEmbedUrl(tmdbId, item.type, curSeason, curEp);
       if (mode === 'alt')     url = buildAltUrl(tmdbId, item.type, curSeason, curEp);
+      if (mode === 'alt2')    url = build2EmbedUrl(tmdbId, item.type, curSeason, curEp);
 
       if (!url) {
         setPlayerMsg('<i class="fa-solid fa-triangle-exclamation"></i>', 'No video source available for this title.');
@@ -375,6 +383,7 @@
       document.querySelectorAll('.watch-srv-btn').forEach(b => b.classList.remove('active'));
       if (num === 1) { document.getElementById('srv1').classList.add('active'); loadEmbed('primary'); }
       if (num === 2) { document.getElementById('srv2').classList.add('active'); loadEmbed('alt'); }
+      if (num === 3) { document.getElementById('srv3').classList.add('active'); loadEmbed('alt2'); }
     };
 
     // ── Mark watched ─────────────────────────────────────
@@ -392,7 +401,7 @@
           updateMarkBtn();
           updateServerMsg();
           updatePrevNextBtns();
-          if (tmdbId) loadEmbed(srcMode === 'yt' ? 'primary' : srcMode);
+          if (tmdbId) loadEmbed(['primary','alt','alt2'].includes(srcMode) ? srcMode : 'primary');
           if (totalEps > 0) refreshEpGrid();
         } else {
           document.getElementById('btnMark').innerHTML = '<i class="fa-solid fa-check-double"></i> Marked!';
