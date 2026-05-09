@@ -82,7 +82,7 @@
 
     <!-- Content (hidden until loaded) -->
     <div id="mainContent" style="display:none;">
-      <a class="watch-back" href="platform.html">
+      <a class="watch-back" href="#">
         <i class="fa-solid fa-arrow-left"></i> Back to Platform
       </a>
 
@@ -181,6 +181,8 @@
 
     const q      = new URLSearchParams(location.search);
     const itemId = q.get('id') || '';
+    const fromParam = q.get('from');
+    const backHref  = (fromParam === 'detail' && itemId) ? `detail.html?id=${itemId}` : 'platform.html';
 
     const TMDB_BASE  = '/api/tmdb';
     const JIKAN_BASE = 'https://api.jikan.moe/v4';
@@ -259,6 +261,19 @@
       // Show main content
       document.getElementById('loadingState').style.display  = 'none';
       document.getElementById('mainContent').style.display   = '';
+      document.querySelector('.watch-back').href = backHref;
+
+      // Cross-link to Explore for source material
+      if (['anime'].includes((item.type||'').toLowerCase())) {
+        const crossBtn = document.createElement('a');
+        crossBtn.href = `explore.html?q=${encodeURIComponent(item.title)}`;
+        crossBtn.className = 'watch-ctrl-btn';
+        crossBtn.innerHTML = '<i class="fa-solid fa-book-open"></i> Find Manga';
+        crossBtn.style.cssText = 'border:1px solid rgba(33,150,243,.3);color:#64b5f6;background:rgba(33,150,243,.1);text-decoration:none;display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;font-family:inherit;font-size:12px;cursor:pointer;';
+        const ctrl = document.getElementById('watchControls');
+        if (ctrl) ctrl.appendChild(crossBtn);
+      }
+
       updateServerMsg();
       updatePrevNextBtns();
 

@@ -361,6 +361,14 @@
       });
     }
 
+    // ── Cross-link to Explore for anime adaptation ────────
+    const crossBtn = document.createElement('a');
+    crossBtn.href = `explore.html?q=${encodeURIComponent(item.title)}`;
+    crossBtn.innerHTML = '<i class="fa-solid fa-tv"></i> Find Anime';
+    crossBtn.style.cssText = 'display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:10px;border:1px solid rgba(33,150,243,.3);color:#64b5f6;background:rgba(33,150,243,.1);text-decoration:none;font-family:inherit;font-size:12px;';
+    const actionsEl = document.querySelector('.read-actions');
+    if (actionsEl) actionsEl.appendChild(crossBtn);
+
     // ── Show content ───────────────────────────────────────
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('mainContent').style.display  = '';

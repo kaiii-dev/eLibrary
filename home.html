@@ -66,6 +66,14 @@
     .icon{ width:16px; height:16px; display:inline-block; }
     .empty{ opacity:.7; text-align:center; padding:40px; border:1px dashed #333; border-radius:16px; margin-top:20px; }
 
+    .quick-action-btn {
+      position:absolute; bottom:8px; right:8px; width:32px; height:32px;
+      border-radius:50%; background:rgba(0,0,0,0.78); color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      font-size:12px; text-decoration:none; opacity:0; transition:opacity .15s; z-index:2;
+    }
+    .card:hover .quick-action-btn { opacity:1; }
+
     /* FAB */
     .fab{ position:fixed; right:22px; bottom:22px; width:56px; height:56px; border-radius:50%;
           background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center;
@@ -138,7 +146,7 @@
 
   <!-- Page logic -->
   <script type="module">
-    import { getWishlistPage, getAllFriendsActivity } from "./js/firebase-service.js";
+    import { getWishlistPage, getAllFriendsActivity, getWishlist } from "./js/firebase-service.js";
 
     const PAGE_SIZE = 24;
 
@@ -191,12 +199,14 @@
       feedList.innerHTML = `<div style="text-align:center;padding:40px;color:#555;font-size:12px;"><i class="fa-solid fa-spinner fa-spin"></i> Loading activity...</div>`;
       try {
         const acts = await getAllFriendsActivity();
+        const myItems = await getWishlist();
+        const myTitleMap = new Map(myItems.map(i => [(i.title||'').toLowerCase().trim(), i.id]));
         if (!acts.length) {
           feedList.innerHTML = `<div style="text-align:center;padding:60px 20px;color:#444;font-size:12px;"><i class="fa-solid fa-rss" style="font-size:36px;opacity:.15;display:block;margin-bottom:14px"></i>No friend activity yet.<br>Add friends to see what they're watching!</div>`;
           return;
         }
         feedList.innerHTML = acts.map(act => `
-          <div style="display:flex;gap:14px;background:#111;border:1px solid #1a1a1a;border-radius:16px;padding:14px;margin-bottom:12px;align-items:center;">
+          <div data-itemid="${myTitleMap.get((act.itemTitle||'').toLowerCase().trim()) || ''}" data-itemtitle="${act.itemTitle || ''}" style="display:flex;gap:14px;background:#111;border:1px solid #1a1a1a;border-radius:16px;padding:14px;margin-bottom:12px;align-items:center;cursor:pointer;">
             ${act.coverPath ? `<img src="${act.coverPath}" style="width:72px;height:100px;object-fit:cover;border-radius:10px;flex-shrink:0;background:#0d0d0d;" onerror="this.style.display='none'">` : ''}
             <div style="flex:1;min-width:0;">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -210,6 +220,13 @@
               ${act.itemType ? `<div style="margin-top:8px;"><span style="font-size:10px;padding:3px 8px;border-radius:999px;background:rgba(255,0,0,.08);border:1px solid rgba(255,0,0,.18);color:#ff8888;">${act.itemType.toUpperCase()}</span></div>` : ''}
             </div>
           </div>`).join('');
+        feedList.querySelectorAll('[data-itemtitle]').forEach(el => {
+          el.addEventListener('click', () => {
+            const id = el.dataset.itemid;
+            if (id) location.href = `detail.html?id=${id}`;
+            else location.href = `explore.html?q=${encodeURIComponent(el.dataset.itemtitle || '')}`;
+          });
+        });
         feedLoaded = true;
       } catch(e) {
         feedList.innerHTML = `<div style="text-align:center;padding:40px;color:#555;font-size:12px;">${e.message || 'Failed to load feed.'}</div>`;
@@ -309,11 +326,20 @@
       const progText = hasProg ? (it.progress_total ? `${it.progress_current}/${it.progress_total}` : `Ep/Ch ${it.progress_current}`) : '';
       const ratingHtml = it.rating != null ? `<span class="chip" style="color:#f5c518;border-color:#f5c51833">★ ${it.rating}</span>` : '';
 
+      const isWatchable = ['anime','movie'].includes((it.type||'').toLowerCase());
+      const isReadable  = ['manga','manhwa','manhua'].includes((it.type||'').toLowerCase());
+      const quickLink   = isWatchable
+        ? `<a href="watch.html?id=${it.id}&from=detail" class="quick-action-btn" onclick="event.stopPropagation()" title="Watch Now"><i class="fa-solid fa-play"></i></a>`
+        : isReadable
+        ? `<a href="read.html?id=${it.id}" class="quick-action-btn" onclick="event.stopPropagation()" title="Read Now"><i class="fa-solid fa-book-open"></i></a>`
+        : '';
+
       const card = document.createElement('a');
       card.className = 'card';
       card.href = `detail.html?id=${it.id}`;
       card.innerHTML = `
         <img class="thumb" src="${imgSrc}" alt="${it.title || ''}" loading="lazy" onerror="this.src='https://via.placeholder.com/400x533?text=No+Image'">
+        ${quickLink}
         <div class="content">
           <h3 class="title">${it.title || ''}</h3>
           <div class="meta">

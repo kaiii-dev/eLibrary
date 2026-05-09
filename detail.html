@@ -489,7 +489,7 @@
 
           <div class="actions">
             ${['anime','movie','tv-show'].includes(item.type) ? `
-            <a class="btn-watch" href="watch.html?id=${item.id}">
+            <a class="btn-watch" href="watch.html?id=${item.id}&from=detail">
               <i class="fa-solid fa-play"></i> Watch Now
             </a>` : ''}
             ${['manga','manhwa','manhua','novel'].includes(item.type) ? `
@@ -498,6 +498,9 @@
             </a>` : ''}
             <a class="btn-edit" href="edit.html?id=${item.id}">
               <i class="fa-solid fa-pen-to-square"></i> Edit
+            </a>
+            <a class="btn-edit" href="platforms.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+              <i class="fa-solid fa-satellite-dish"></i> Platforms
             </a>
             <button class="btn-delete" id="deleteBtn">
               <i class="fa-solid fa-trash"></i> Delete

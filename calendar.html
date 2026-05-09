@@ -137,7 +137,8 @@
   </div>
 
   <script type="module">
-    import { getWishlist } from "./js/firebase-service.js";
+    import { getWishlist, addWishlistItemFromUrl } from "./js/firebase-service.js";
+    import { showToast } from "./js/toast.js";
 
     const JIKAN_BASE = 'https://api.jikan.moe/v4';
 
@@ -152,11 +153,30 @@
     let trackedTitles = new Set();
 
     /* ── Load wishlist for tracking highlight ── */
+    window._calTrackedMap = new Map();
     getWishlist().then(items => {
       items.forEach(i => {
-        if (i.title) trackedTitles.add(i.title.toLowerCase().trim());
+        const key = (i.title || '').toLowerCase().trim();
+        trackedTitles.add(key);
+        window._calTrackedMap.set(key, i.id);
       });
     }).catch(() => {});
+
+    window._calAddToLibrary = async function(title, cover) {
+      const key = (title||'').toLowerCase().trim();
+      const existing = window._calTrackedMap && window._calTrackedMap.get(key);
+      if (existing) { location.href = `detail.html?id=${existing}`; return; }
+      try {
+        const btn = document.querySelector(`[data-cal-title="${CSS.escape(title)}"]`);
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+        const id = await addWishlistItemFromUrl({ title, type: 'anime', status: 'planning' }, cover);
+        if (window._calTrackedMap) window._calTrackedMap.set(key, id);
+        showToast(`"${title}" added to library!`, 'success');
+        if (btn) { btn.innerHTML = '<i class="fa-solid fa-check"></i>'; btn.style.color = '#4caf50'; }
+      } catch(e) {
+        showToast('Failed to add.', 'error');
+      }
+    };
 
     /* ── Build day pills ── */
     const dayBar = document.getElementById('dayBar');
@@ -237,6 +257,31 @@
             ${it.synopsis ? `<p class="cal-syn">${esc(it.synopsis.slice(0,120))}${it.synopsis.length>120?'…':''}</p>` : ''}
           </div>`;
         grid.appendChild(card);
+
+        card.style.cursor = 'pointer';
+        const _cardTitle = it.title || '';
+        card.addEventListener('click', () => {
+          const map = window._calTrackedMap;
+          const docId = map && map.get(_cardTitle.toLowerCase().trim());
+          if (docId) location.href = `detail.html?id=${docId}`;
+          else location.href = `explore.html?q=${encodeURIComponent(_cardTitle)}`;
+        });
+
+        // For untracked cards only: add a small "+ Add" button
+        if (!isTracked) {
+          const addBtn = document.createElement('button');
+          addBtn.setAttribute('data-cal-title', _cardTitle);
+          addBtn.style.cssText = 'cursor:pointer;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.3);color:#ff9999;margin-top:6px;font-family:inherit;font-size:10px;padding:3px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;';
+          addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add';
+          addBtn.onclick = (e) => {
+            e.stopPropagation();
+            const cover = it.images?.jpg?.image_url || '';
+            if (typeof window._calAddToLibrary === 'function') window._calAddToLibrary(_cardTitle, cover);
+          };
+          // Append to the card's info section
+          const infoEl = card.querySelector('.cal-info') || card;
+          infoEl.appendChild(addBtn);
+        }
       });
 
       // Update tracking badge

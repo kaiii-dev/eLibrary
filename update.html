@@ -103,7 +103,7 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${i+1}</td>
-          <td>${it.title}</td>
+          <td><a href="detail.html?id=${it.id}" style="color:#ff9999;text-decoration:none;">${it.title}</a></td>
           <td>${(it.type||'').toUpperCase()}</td>
           <td>
             <select data-id="${it.id}" class="status">
