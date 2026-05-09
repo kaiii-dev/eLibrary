@@ -124,6 +124,26 @@
       padding:14px 16px; font-size:12px; color:#888; line-height:1.6;
       white-space:pre-wrap; margin-bottom:24px;
     }
+
+    /* MangaDex chapter browser */
+    .chapter-grid{
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+      gap:9px; margin-bottom:32px;
+    }
+    .chapter-card{
+      background:#0d0d0d; border:1px solid #1a1a1a; border-radius:10px;
+      padding:10px 12px; text-decoration:none; transition:border-color .15s, background .15s;
+      display:flex; flex-direction:column; gap:3px;
+    }
+    .chapter-card:hover{ background:#131313; border-color:rgba(33,150,243,.3); }
+    .chapter-num{ font-size:11px; color:#64b5f6; }
+    .chapter-title{ font-size:10px; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .chapter-date{ font-size:9px; color:#333; margin-top:2px; }
+    .chapter-skeleton{
+      background:#0d0d0d; border:1px solid #1a1a1a; border-radius:10px;
+      padding:10px 12px; height:58px; animation:skelPulse 1.4s infinite;
+    }
+    @keyframes skelPulse{ 0%,100%{opacity:.4} 50%{opacity:.8} }
   </style>
 </head>
 <body>
@@ -185,6 +205,12 @@
       <!-- Reading Sources -->
       <p class="sec-title"><i class="fa-solid fa-book-open"></i> Where to Read</p>
       <div class="sources-list" id="sourcesList"></div>
+
+      <!-- MangaDex Chapter Browser -->
+      <div id="chapterSection" style="display:none;">
+        <p class="sec-title"><i class="fa-brands fa-markdown" style="color:#ff6740;"></i> MangaDex Chapters</p>
+        <div id="chapterGrid" class="chapter-grid"></div>
+      </div>
     </div>
   </div>
 
@@ -372,6 +398,60 @@
     // ── Show content ───────────────────────────────────────
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('mainContent').style.display  = '';
+
+    // ── MangaDex Chapter Browser (Feature 8) ──────────────
+    async function maybeLoadChapters(it) {
+      // Find a MangaDex URL in site_url or sources
+      const urls = [it.site_url, ...(it.sources || []).map(s => s.url)].filter(Boolean);
+      const mdUrl = urls.find(u => u.includes('mangadex.org'));
+      if (!mdUrl) return;
+
+      const uuid = mdUrl.match(/title\/([a-f0-9-]{36})/)?.[1];
+      if (!uuid) return;
+
+      const section  = document.getElementById('chapterSection');
+      const gridEl   = document.getElementById('chapterGrid');
+      section.style.display = '';
+
+      // Show skeletons
+      gridEl.innerHTML = Array(12).fill('<div class="chapter-skeleton"></div>').join('');
+
+      try {
+        const apiUrl = `https://api.mangadex.org/manga/${uuid}/feed?translatedLanguage[]=en&order[chapter]=desc&limit=96&includes[]=scanlation_group`;
+        const proxyUrl = `/api/mangadex?url=${encodeURIComponent(apiUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error('Proxy error ' + res.status);
+        const data = await res.json();
+        const chapters = (data.data || []);
+
+        if (!chapters.length) {
+          gridEl.innerHTML = '<div style="color:#444;font-size:11px;padding:12px;">No English chapters found.</div>';
+          return;
+        }
+
+        function fmtDate(str) {
+          if (!str) return '';
+          try { return new Date(str).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }
+          catch { return ''; }
+        }
+
+        gridEl.innerHTML = chapters.map(ch => {
+          const attr  = ch.attributes || {};
+          const num   = attr.chapter ? `Ch. ${attr.chapter}` : 'Oneshot';
+          const title = attr.title || '';
+          const date  = fmtDate(attr.publishAt || attr.readableAt);
+          return `<a class="chapter-card" href="https://mangadex.org/chapter/${ch.id}" target="_blank" rel="noopener">
+            <span class="chapter-num">${num}</span>
+            ${title ? `<span class="chapter-title">${title}</span>` : ''}
+            ${date  ? `<span class="chapter-date">${date}</span>`   : ''}
+          </a>`;
+        }).join('');
+      } catch(err) {
+        gridEl.innerHTML = `<div style="color:#444;font-size:11px;padding:12px;">Could not load chapters. ${err.message || ''}</div>`;
+      }
+    }
+
+    maybeLoadChapters(item);
   </script>
 </body>
 </html>

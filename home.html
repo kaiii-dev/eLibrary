@@ -79,6 +79,63 @@
           background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center;
           font-size:28px; font-weight:900; cursor:pointer; box-shadow:0 10px 20px rgba(255,0,0,0.25); border: none; }
     .fab:hover{ box-shadow:0 0 16px var(--accent); transform:translateY(-1px); }
+
+    /* CONTEXT MENU */
+    #cardContextMenu {
+      position:fixed; z-index:9999; background:#111; border:1px solid #2a2a2a;
+      border-radius:14px; padding:6px; min-width:170px;
+      box-shadow:0 8px 28px rgba(0,0,0,.65); display:none;
+    }
+    .ctx-item {
+      display:flex; align-items:center; gap:9px; padding:9px 12px;
+      border-radius:9px; font-size:11px; color:#aaa; cursor:pointer;
+      transition:all .12s; border:none; background:none; width:100%;
+      font-family:"Bungee",Arial,sans-serif; text-align:left;
+    }
+    .ctx-item:hover { background:rgba(255,0,0,.1); color:#ff9999; }
+    .ctx-item.ctx-view { color:#64b5f6; }
+    .ctx-item.ctx-view:hover { background:rgba(33,150,243,.1); color:#90caf9; }
+    .ctx-divider { height:1px; background:#1e1e1e; margin:4px 0; }
+
+    /* CONTINUE BANNER */
+    #continueBanner { padding:0 22px; display:none; }
+    .continue-header { font-size:11px; color:#555; letter-spacing:.08em; text-transform:uppercase; margin:16px 0 10px; display:flex; align-items:center; gap:7px; }
+    .continue-shelf { display:flex; gap:10px; overflow-x:auto; padding-bottom:10px; scrollbar-width:thin; scrollbar-color:#222 transparent; }
+    .continue-shelf::-webkit-scrollbar { height:4px; }
+    .continue-shelf::-webkit-scrollbar-thumb { background:#222; border-radius:999px; }
+    .continue-card {
+      flex:0 0 110px; border-radius:12px; overflow:hidden;
+      background:#111; border:1px solid #1a1a1a; cursor:pointer;
+      transition:transform .15s, box-shadow .15s; text-decoration:none; display:block;
+    }
+    .continue-card:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(255,0,0,.15); border-color:rgba(255,0,0,.2); }
+    .continue-card img { width:100%; aspect-ratio:3/4; object-fit:cover; display:block; background:#0d0d0d; }
+    .continue-card-info { padding:6px 8px 8px; }
+    .continue-card-title { font-size:10px; line-height:1.25; color:#ccc; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .continue-card-prog { height:3px; background:#1a1a1a; border-radius:999px; margin-top:5px; overflow:hidden; }
+    .continue-card-prog-fill { height:100%; background:linear-gradient(90deg,#ff4444,#ff8800); border-radius:999px; }
+
+    /* AIRING BANNER */
+    #airingBanner {
+      display:none; margin:10px 22px 0;
+      background:rgba(255,140,0,.07); border:1px solid rgba(255,140,0,.22);
+      border-radius:14px; padding:12px 16px;
+    }
+    .airing-inner { display:flex; align-items:flex-start; gap:12px; }
+    .airing-body { flex:1; min-width:0; }
+    .airing-label { font-size:11px; color:#ffb347; margin-bottom:7px; letter-spacing:.05em; }
+    .airing-links { display:flex; flex-wrap:wrap; gap:7px; }
+    .airing-link {
+      font-size:10px; padding:3px 10px; border-radius:999px;
+      background:rgba(255,140,0,.1); border:1px solid rgba(255,140,0,.28);
+      color:#ffb347; text-decoration:none; transition:background .12s;
+    }
+    .airing-link:hover { background:rgba(255,140,0,.2); }
+    .airing-close {
+      background:none; border:none; color:#555; font-size:14px;
+      cursor:pointer; padding:0 2px; flex-shrink:0; transition:color .12s;
+    }
+    .airing-close:hover { color:#999; }
   </style>
 </head>
 <body>
@@ -120,6 +177,24 @@
     </div>
   </section>
 
+  <!-- Continue Watching/Reading Shelf -->
+  <div id="continueBanner">
+    <div class="continue-header"><i class="fa-solid fa-circle-play"></i> Continue</div>
+    <div class="continue-shelf" id="continueShelf"></div>
+  </div>
+
+  <!-- Airing Today Banner -->
+  <div id="airingBanner">
+    <div class="airing-inner">
+      <i class="fa-solid fa-fire" style="color:#ff8c00;font-size:16px;margin-top:1px;flex-shrink:0;"></i>
+      <div class="airing-body">
+        <div class="airing-label"><i class="fa-solid fa-calendar-day"></i> Airing Today</div>
+        <div class="airing-links" id="airingLinks"></div>
+      </div>
+      <button class="airing-close" id="airingDismiss" title="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+  </div>
+
   <!-- GALLERY -->
   <main class="wrap">
     <div id="grid" class="grid"></div>
@@ -144,9 +219,21 @@
   <!-- Floating Add button -->
   <button class="fab" title="Add Wishlist" onclick="location.href='add.html'">+</button>
 
+  <!-- Card right-click context menu -->
+  <div id="cardContextMenu">
+    <button class="ctx-item" data-status="watching"><i class="fa-solid fa-eye"></i> Watching</button>
+    <button class="ctx-item" data-status="reading"><i class="fa-solid fa-book-open"></i> Reading</button>
+    <button class="ctx-item" data-status="completed"><i class="fa-solid fa-check-double"></i> Completed</button>
+    <button class="ctx-item" data-status="on_hold"><i class="fa-solid fa-pause"></i> On Hold</button>
+    <button class="ctx-item" data-status="dropped"><i class="fa-solid fa-xmark"></i> Dropped</button>
+    <button class="ctx-item" data-status="planning"><i class="fa-solid fa-clock"></i> Planning</button>
+    <div class="ctx-divider"></div>
+    <a class="ctx-item ctx-view" id="ctxViewBtn" href="#"><i class="fa-solid fa-arrow-up-right-from-square"></i> View Detail</a>
+  </div>
+
   <!-- Page logic -->
   <script type="module">
-    import { getWishlistPage, getAllFriendsActivity, getWishlist } from "./js/firebase-service.js";
+    import { getWishlistPage, getAllFriendsActivity, getWishlist, updateWishlistItem, getRecentlyUpdated } from "./js/firebase-service.js";
 
     const PAGE_SIZE = 24;
 
@@ -337,6 +424,7 @@
       const card = document.createElement('a');
       card.className = 'card';
       card.href = `detail.html?id=${it.id}`;
+      card.addEventListener('contextmenu', (e) => { e.preventDefault(); showContextMenu(e, it); });
       card.innerHTML = `
         <img class="thumb" src="${imgSrc}" alt="${it.title || ''}" loading="lazy" onerror="this.src='https://via.placeholder.com/400x533?text=No+Image'">
         ${quickLink}
@@ -403,7 +491,105 @@
     // Status dropdown — filter already-loaded items instantly
     if (statusSel) statusSel.addEventListener('change', filterAndRender);
 
-    resetAndLoad();
+    /* ── Context menu (Feature 4) ─────────────────────────── */
+    const ctxMenu    = document.getElementById('cardContextMenu');
+    const ctxViewBtn = document.getElementById('ctxViewBtn');
+    let ctxItem = null;
+
+    function showContextMenu(e, it) {
+      ctxItem = it;
+      if (ctxViewBtn) ctxViewBtn.href = `detail.html?id=${it.id}`;
+      const x = Math.min(e.clientX, window.innerWidth - 185);
+      const y = Math.min(e.clientY, window.innerHeight - 290);
+      ctxMenu.style.left    = x + 'px';
+      ctxMenu.style.top     = y + 'px';
+      ctxMenu.style.display = '';
+    }
+
+    function hideCtx() { ctxMenu.style.display = 'none'; ctxItem = null; }
+    document.addEventListener('click',   hideCtx);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideCtx(); });
+    window.addEventListener('scroll',    hideCtx, { passive: true });
+
+    ctxMenu.querySelectorAll('[data-status]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!ctxItem) return;
+        const newStatus = btn.dataset.status;
+        const id = ctxItem.id;
+        hideCtx();
+        try {
+          await updateWishlistItem(id, { status: newStatus });
+          const idx = allItems.findIndex(i => i.id === id);
+          if (idx !== -1) allItems[idx] = { ...allItems[idx], status: newStatus };
+          filterAndRender();
+        } catch(err) { console.error('Status update failed:', err); }
+      });
+    });
+
+    /* ── Continue Watching/Reading shelf (Feature 5) ────────── */
+    async function loadContinueBanner() {
+      try {
+        const items = await getRecentlyUpdated(6);
+        if (!items.length) return;
+        const shelf  = document.getElementById('continueShelf');
+        const banner = document.getElementById('continueBanner');
+        shelf.innerHTML = items.map(it => {
+          const img  = it.cover_path || 'https://via.placeholder.com/110x147?text=?';
+          const pct  = (it.progress_current && it.progress_total)
+            ? Math.min(100, Math.round(it.progress_current / it.progress_total * 100)) : 0;
+          const href = ['anime','movie'].includes((it.type||'').toLowerCase())
+            ? `watch.html?id=${it.id}&from=detail` : `read.html?id=${it.id}`;
+          return `<a class="continue-card" href="${href}">
+            <img src="${img}" alt="${(it.title||'').replace(/"/g,'&quot;')}" loading="lazy"
+              onerror="this.src='https://via.placeholder.com/110x147?text=?'">
+            <div class="continue-card-info">
+              <div class="continue-card-title">${it.title||''}</div>
+              ${pct ? `<div class="continue-card-prog"><div class="continue-card-prog-fill" style="width:${pct}%"></div></div>` : ''}
+            </div>
+          </a>`;
+        }).join('');
+        banner.style.display = '';
+      } catch(err) { console.error('Continue banner:', err); }
+    }
+
+    /* ── Airing Today banner (Feature 6) ────────────────────── */
+    async function checkAiringToday() {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      if (sessionStorage.getItem('airingBannerDismissed') === todayKey) return;
+      const dayName = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      try {
+        const res = await fetch(`https://api.jikan.moe/v4/schedules?filter=${dayName}&limit=25`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const airingLower = new Set((data.data || []).map(a => (a.title || '').toLowerCase()));
+        const matches = allItems.filter(i =>
+          (i.type || '').toLowerCase() === 'anime' && airingLower.has((i.title || '').toLowerCase())
+        );
+        if (!matches.length) return;
+        const banner  = document.getElementById('airingBanner');
+        const linksEl = document.getElementById('airingLinks');
+        linksEl.innerHTML = matches.map(m =>
+          `<a class="airing-link" href="watch.html?id=${m.id}">${m.title}</a>`
+        ).join('');
+        banner.style.display = '';
+        document.getElementById('airingDismiss')?.addEventListener('click', () => {
+          banner.style.display = 'none';
+          sessionStorage.setItem('airingBannerDismissed', todayKey);
+        });
+      } catch { /* silent fail */ }
+    }
+
+    /* ── Init ────────────────────────────────────────────────── */
+    (async () => {
+      // URL param pre-fill (Feature 7)
+      const urlQ = new URLSearchParams(location.search).get('q');
+      if (urlQ && q) q.value = urlQ;
+
+      await resetAndLoad();
+      loadContinueBanner();  // fire-and-forget
+      checkAiringToday();    // fire-and-forget
+    })();
   </script>
 </body>
 </html>

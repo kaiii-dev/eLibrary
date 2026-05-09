@@ -772,3 +772,22 @@ export async function getStats() {
     longestStreak: streakData.longestStreak || 0,
   };
 }
+
+export async function getRecentlyUpdated(limitCount = 5) {
+  try {
+    const snap = await getDocs(query(
+      await wishlistCol(),
+      where('status', 'in', ['watching', 'reading']),
+      orderBy('updated_at', 'desc'),
+      limit(limitCount)
+    ));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch {
+    // Fallback if composite index not yet created — client-side filter
+    const snap = await getDocs(query(await wishlistCol(), orderBy('updated_at', 'desc'), limit(50)));
+    return snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(i => i.status === 'watching' || i.status === 'reading')
+      .slice(0, limitCount);
+  }
+}
