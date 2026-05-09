@@ -54,9 +54,10 @@
       });
     };
   })();
-  const page     = (location.pathname.split('/').pop() || '').toLowerCase();
-  const q        = new URLSearchParams(location.search);
-  const type     = (q.get('type') || '').toLowerCase();
+
+  const page      = (location.pathname.split('/').pop() || '').toLowerCase();
+  const q         = new URLSearchParams(location.search);
+  const type      = (q.get('type') || '').toLowerCase();
   const userEmail = sessionStorage.getItem('userEmail') || '';
   const userName  = sessionStorage.getItem('userName')  || '';
   const userPhoto = sessionStorage.getItem('userPhoto') || '';
@@ -73,16 +74,38 @@
     stats:    page.includes('stats'),
   };
 
-  const links = [
-    { href: 'explore.html',  label: 'Explore',         icon: 'fa-compass',       key: 'explore'  },
-    { href: 'home.html',     label: 'Home',            icon: 'fa-house',         key: 'home'     },
-    { href: 'platform.html', label: 'Platform',        icon: 'fa-circle-play',   key: 'platform' },
-    { href: 'update.html',   label: 'Update Wishlist', icon: 'fa-pen-to-square', key: 'update'   },
-    { href: 'friends.html',  label: 'Friends',         icon: 'fa-user-group',    key: 'friends'  },
-    { href: 'calendar.html', label: 'Calendar',        icon: 'fa-calendar-days', key: 'calendar' },
-    { href: 'import.html',   label: 'Import',          icon: 'fa-file-import',   key: 'import'   },
-    { href: 'stats.html',    label: 'Stats',           icon: 'fa-chart-bar',     key: 'stats'    },
+  const primaryLinks = [
+    { href: 'explore.html',  label: 'Explore',  icon: 'fa-compass',       key: 'explore'  },
+    { href: 'home.html',     label: 'Home',     icon: 'fa-house',         key: 'home'     },
+    { href: 'platform.html', label: 'Platform', icon: 'fa-circle-play',   key: 'platform' },
+    { href: 'update.html',   label: 'Tracker',  icon: 'fa-pen-to-square', key: 'update'   },
   ];
+
+  const secondaryLinks = [
+    { href: 'friends.html',  label: 'Friends',  icon: 'fa-user-group',    key: 'friends'  },
+    { href: 'calendar.html', label: 'Calendar', icon: 'fa-calendar-days', key: 'calendar' },
+    { href: 'import.html',   label: 'Import',   icon: 'fa-file-import',   key: 'import'   },
+    { href: 'stats.html',    label: 'Stats',    icon: 'fa-chart-bar',     key: 'stats'    },
+  ];
+
+  const allLinks = [...primaryLinks, ...secondaryLinks];
+
+  function buildNavLink(l) {
+    const hasBadge = l.key === 'friends' && parseInt(sessionStorage.getItem('friendReqCount') || '0') > 0;
+    return `
+      <a href="${l.href}" class="nav-link ${active[l.key] ? 'active' : ''}" title="${l.label}">
+        <span class="nav-link-icon" style="position:relative;display:inline-flex;align-items:center;">
+          <i class="fa-solid ${l.icon}"></i>
+          ${hasBadge ? `<span class="nav-badge-dot"></span>` : ''}
+        </span>
+        <span class="nav-link-label">${l.label}</span>
+      </a>`;
+  }
+
+  const moreIsActive = secondaryLinks.some(l => active[l.key]);
+  const moreBadge    = secondaryLinks.some(l =>
+    l.key === 'friends' && parseInt(sessionStorage.getItem('friendReqCount') || '0') > 0
+  );
 
   const logoSvg = `
     <svg width="30" height="26" viewBox="0 0 30 26" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -121,17 +144,30 @@
     </a>
 
     <div class="nav-links">
-      ${links.map(l => {
-        const hasBadge = l.key === 'friends' && parseInt(sessionStorage.getItem('friendReqCount') || '0') > 0;
-        return `
-        <a href="${l.href}" class="nav-link ${active[l.key] ? 'active' : ''}">
-          <span style="position:relative;display:inline-flex;align-items:center;">
-            <i class="fa-solid ${l.icon}"></i>
-            ${hasBadge ? `<span class="nav-badge-dot"></span>` : ''}
+      ${primaryLinks.map(l => buildNavLink(l)).join('')}
+
+      <div class="nav-more" id="navMore">
+        <button class="nav-more-btn ${moreIsActive ? 'active' : ''}" id="navMoreBtn"
+                aria-haspopup="true" aria-expanded="false" aria-label="More navigation items">
+          <span class="nav-link-icon" style="position:relative;display:inline-flex;align-items:center;">
+            <i class="fa-solid fa-ellipsis"></i>
+            ${moreBadge ? `<span class="nav-badge-dot"></span>` : ''}
           </span>
-          <span>${l.label}</span>
-        </a>`;
-      }).join('')}
+          <span class="nav-link-label">More</span>
+          <i class="fa-solid fa-chevron-down nav-more-chevron"></i>
+        </button>
+        <div class="nav-more-panel" id="navMorePanel" role="menu">
+          ${secondaryLinks.map(l => {
+            const hasBadge = l.key === 'friends' && moreBadge;
+            return `<a href="${l.href}" class="nav-more-link ${active[l.key] ? 'active' : ''}" role="menuitem">
+              <span style="position:relative;display:inline-flex;align-items:center;">
+                <i class="fa-solid ${l.icon}"></i>
+                ${hasBadge ? `<span class="nav-badge-dot"></span>` : ''}
+              </span> ${l.label}
+            </a>`;
+          }).join('')}
+        </div>
+      </div>
     </div>
 
     <div class="nav-right">
@@ -164,7 +200,7 @@
         : `<i class="fa-solid fa-circle-user"></i>`}
       ${username}
     </div>
-    ${links.map(l => {
+    ${allLinks.map(l => {
       const hasBadge = l.key === 'friends' && parseInt(sessionStorage.getItem('friendReqCount') || '0') > 0;
       return `
       <a href="${l.href}" class="nav-mobile-link ${active[l.key] ? 'active' : ''}">
@@ -218,6 +254,34 @@
     if (userChip)       userChip.addEventListener('click', openProfile);
     if (mobileUserChip) mobileUserChip.addEventListener('click', openProfile);
 
+    // ── More dropdown ──────────────────────────────────────────
+    const moreBtn   = document.getElementById('navMoreBtn');
+    const morePanel = document.getElementById('navMorePanel');
+    if (moreBtn && morePanel) {
+      const openMore  = () => {
+        morePanel.classList.add('open');
+        moreBtn.setAttribute('aria-expanded', 'true');
+        moreBtn.classList.add('panel-open');
+      };
+      const closeMore = () => {
+        morePanel.classList.remove('open');
+        moreBtn.setAttribute('aria-expanded', 'false');
+        moreBtn.classList.remove('panel-open');
+      };
+      moreBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        morePanel.classList.contains('open') ? closeMore() : openMore();
+      });
+      document.addEventListener('click', e => {
+        if (!document.getElementById('navMore')?.contains(e.target)) closeMore();
+      });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeMore(); moreBtn.focus(); }
+      });
+      morePanel.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMore));
+    }
+
+    // ── Hamburger ──────────────────────────────────────────────
     const hamburger = document.getElementById('navHamburger');
     const navMobile = document.getElementById('navMobile');
     if (hamburger && navMobile) {
