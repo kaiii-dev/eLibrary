@@ -97,7 +97,7 @@
     onAuthStateChanged(auth, (user) => {
       if (user) {
         sessionStorage.setItem('userEmail', user.email);
-        window.location.replace('home.html');
+        window.location.replace('explore.html');
       }
     });
 

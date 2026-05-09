@@ -73,8 +73,8 @@
   };
 
   const links = [
-    { href: 'home.html',     label: 'Home',            icon: 'fa-house',         key: 'home'     },
     { href: 'explore.html',  label: 'Explore',         icon: 'fa-compass',       key: 'explore'  },
+    { href: 'home.html',     label: 'Home',            icon: 'fa-house',         key: 'home'     },
     { href: 'platform.html', label: 'Platform',        icon: 'fa-circle-play',   key: 'platform' },
     { href: 'update.html',   label: 'Update Wishlist', icon: 'fa-pen-to-square', key: 'update'   },
     { href: 'friends.html',  label: 'Friends',         icon: 'fa-user-group',    key: 'friends'  },
