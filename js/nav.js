@@ -135,9 +135,6 @@
     </div>
 
     <div class="nav-right">
-      <button id="navSearchBtn" title="Search Library" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;border:1px solid #1a1a1a;background:transparent;color:#777;cursor:pointer;transition:all .15s;flex-shrink:0;">
-        <i class="fa-solid fa-magnifying-glass" style="font-size:13px;pointer-events:none;"></i>
-      </button>
       <button id="pwaInstallBtn" onclick="pwaInstall()" title="Install App" style="display:none;align-items:center;gap:6px;padding:6px 13px;border-radius:10px;border:1px solid rgba(255,0,0,0.3);background:rgba(255,0,0,0.1);color:#ff9999;font-family:'Bungee',Arial,sans-serif;font-size:11px;cursor:pointer;transition:all .15s;">
         <i class="fa-solid fa-download"></i> <span class="nav-install-label">Install</span>
       </button>
@@ -197,23 +194,6 @@
   mobileEl.innerHTML = mobileHtml;
   if (container) container.insertAdjacentElement('afterend', mobileEl);
 
-  const searchBarEl = document.createElement('div');
-  searchBarEl.id = 'navSearchBar';
-  searchBarEl.style.cssText = 'display:none;position:sticky;top:60px;z-index:69;background:#080808;border-bottom:1px solid #1a1a1a;padding:10px 20px;';
-  searchBarEl.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;max-width:640px;margin:0 auto;">
-      <div style="flex:1;display:flex;align-items:center;gap:8px;background:#0f0f0f;border:1px solid #222;border-radius:12px;padding:10px 14px;transition:border-color .15s;">
-        <i class="fa-solid fa-magnifying-glass" style="color:#555;font-size:12px;flex-shrink:0;"></i>
-        <input id="navSearchInput" type="text" placeholder="Search your library..." autocomplete="off"
-          style="flex:1;border:none;outline:none;background:transparent;color:#fff;font-family:'Bungee',Arial,sans-serif;font-size:13px;">
-      </div>
-      <button id="navSearchClose" style="background:none;border:none;color:#555;font-size:16px;cursor:pointer;padding:4px 8px;line-height:1;transition:color .12s;" title="Close">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-  `;
-  mobileEl.insertAdjacentElement('afterend', searchBarEl);
-
   const onReady = () => {
     function doLogout(e) {
       e.preventDefault();
@@ -237,31 +217,6 @@
     const mobileUserChip = document.getElementById('navMobileUserChip');
     if (userChip)       userChip.addEventListener('click', openProfile);
     if (mobileUserChip) mobileUserChip.addEventListener('click', openProfile);
-
-    const navSearchBtn   = document.getElementById('navSearchBtn');
-    const navSearchBar   = document.getElementById('navSearchBar');
-    const navSearchInput = document.getElementById('navSearchInput');
-    const navSearchClose = document.getElementById('navSearchClose');
-    if (navSearchBtn && navSearchBar) {
-      navSearchBtn.addEventListener('click', () => {
-        const isHidden = navSearchBar.style.display === 'none' || navSearchBar.style.display === '';
-        navSearchBar.style.display = isHidden ? 'block' : 'none';
-        if (isHidden && navSearchInput) navSearchInput.focus();
-      });
-      if (navSearchClose) {
-        navSearchClose.addEventListener('click', () => { navSearchBar.style.display = 'none'; });
-      }
-      if (navSearchInput) {
-        navSearchInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            const val = navSearchInput.value.trim();
-            if (val) location.href = 'home.html?q=' + encodeURIComponent(val);
-            else navSearchBar.style.display = 'none';
-          }
-          if (e.key === 'Escape') navSearchBar.style.display = 'none';
-        });
-      }
-    }
 
     const hamburger = document.getElementById('navHamburger');
     const navMobile = document.getElementById('navMobile');

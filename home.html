@@ -582,10 +582,6 @@
 
     /* ── Init ────────────────────────────────────────────────── */
     (async () => {
-      // URL param pre-fill (Feature 7)
-      const urlQ = new URLSearchParams(location.search).get('q');
-      if (urlQ && q) q.value = urlQ;
-
       await resetAndLoad();
       loadContinueBanner();  // fire-and-forget
       checkAiringToday();    // fire-and-forget
