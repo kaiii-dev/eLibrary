@@ -345,15 +345,21 @@
       const frag = document.createDocumentFragment();
       items.forEach(it => frag.appendChild(makeCard(it)));
       grid.appendChild(frag);
+      // If page isn't tall enough to scroll, auto-fetch next page
+      if (hasMore) maybeLoadMore();
     }
 
-    // IntersectionObserver — fires fetchNextPage when sentinel scrolls into view
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasMore && !fetching) {
+    // Trigger load if sentinel is near or within the viewport
+    function maybeLoadMore() {
+      if (fetching || !hasMore) return;
+      const rect = sentinel.getBoundingClientRect();
+      if (rect.top <= window.innerHeight + 300) {
         fetchNextPage();
       }
-    }, { rootMargin: '200px' });
-    observer.observe(sentinel);
+    }
+
+    // Scroll-based trigger — reliable across all browsers
+    window.addEventListener('scroll', () => { maybeLoadMore(); }, { passive: true });
 
     // Search button — reset & reload from Firestore
     if (btn) btn.addEventListener('click', resetAndLoad);
