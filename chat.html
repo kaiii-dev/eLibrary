@@ -20,31 +20,67 @@
 
     <!-- ── SIDEBAR ── -->
     <aside class="chat-sidebar" id="chatSidebar">
-      <div class="chat-sidebar-header">
-        <i class="fa-solid fa-comments"></i> Messages
+
+      <!-- Tab bar -->
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" data-tab="chats">
+          <i class="fa-solid fa-comments"></i> Chats
+        </button>
+        <button class="sidebar-tab" data-tab="requests">
+          <i class="fa-solid fa-bell"></i> Requests
+          <span class="sidebar-tab-badge" id="reqBadge" style="display:none;"></span>
+        </button>
+        <button class="sidebar-tab" data-tab="find">
+          <i class="fa-solid fa-user-plus"></i> Find
+        </button>
       </div>
-      <div class="chat-sidebar-list" id="sidebarList">
-        <div class="chat-sidebar-empty">
-          <i class="fa-solid fa-spinner fa-spin"></i>
-          Loading friends...
+
+      <!-- Chats panel -->
+      <div class="sidebar-panel" id="panel-chats">
+        <div class="chat-sidebar-list" id="sidebarList">
+          <div class="chat-sidebar-empty">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            Loading…
+          </div>
         </div>
       </div>
+
+      <!-- Requests panel -->
+      <div class="sidebar-panel" id="panel-requests" style="display:none;">
+        <div class="sidebar-panel-inner" id="requestsList">
+          <div class="chat-sidebar-empty">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            Loading…
+          </div>
+        </div>
+      </div>
+
+      <!-- Find panel -->
+      <div class="sidebar-panel" id="panel-find" style="display:none;">
+        <div class="find-search-wrap">
+          <input type="text" id="findInput" class="find-input" placeholder="Search by username…" autocomplete="off" maxlength="30" />
+          <button id="findBtn" class="find-btn">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </button>
+        </div>
+        <div id="findResult" class="find-result-area"></div>
+      </div>
+
     </aside>
 
     <!-- ── MAIN PANEL ── -->
     <main class="chat-main" id="chatMain">
 
-      <!-- Empty state (no conversation selected) -->
+      <!-- Empty state -->
       <div class="chat-empty-state" id="emptyState">
         <i class="fa-solid fa-comments"></i>
         <p>Select a friend to chat</p>
         <span>Share your anime, manga &amp; movie wishlist</span>
       </div>
 
-      <!-- Active conversation (hidden until selected) -->
+      <!-- Active conversation -->
       <div id="activeConvo" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
 
-        <!-- Chat header -->
         <div class="chat-header" id="chatHeader">
           <div class="chat-header-avatar" id="headerAvatar">
             <i class="fa-solid fa-circle-user"></i>
@@ -60,22 +96,14 @@
           </div>
         </div>
 
-        <!-- Messages -->
         <div class="chat-messages" id="chatMessages"></div>
 
-        <!-- Input bar -->
         <div class="chat-input-area">
           <button class="chat-share-btn" id="shareBtn" title="Share a wishlist item">
             <i class="fa-solid fa-book-open-reader"></i>
           </button>
-          <input
-            class="chat-text-input"
-            id="msgInput"
-            type="text"
-            placeholder="Type a message…"
-            maxlength="1000"
-            autocomplete="off"
-          />
+          <input class="chat-text-input" id="msgInput" type="text"
+            placeholder="Type a message…" maxlength="1000" autocomplete="off" />
           <button class="chat-send-btn" id="sendBtn" disabled title="Send">
             <i class="fa-solid fa-paper-plane"></i>
           </button>
@@ -84,11 +112,10 @@
       </div>
 
     </main>
-
   </div>
 
   <!-- Mobile sidebar toggle -->
-  <button class="chat-sidebar-toggle" id="sidebarToggle" title="Open conversations">
+  <button class="chat-sidebar-toggle" id="sidebarToggle" title="Open">
     <i class="fa-solid fa-comments"></i>
   </button>
 
@@ -107,9 +134,7 @@
         <input type="text" id="shareSearch" placeholder="Search your wishlist…" autocomplete="off" />
       </div>
       <div class="share-modal-grid" id="shareGrid">
-        <div class="share-modal-empty">
-          <i class="fa-solid fa-spinner fa-spin"></i> Loading…
-        </div>
+        <div class="share-modal-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>
       </div>
     </div>
   </div>
@@ -117,6 +142,11 @@
   <script type="module">
     import {
       getFriends,
+      getFriendRequests,
+      acceptFriendRequest,
+      declineFriendRequest,
+      sendFriendRequest,
+      searchUserByUsername,
       getOrCreateChat,
       sendTextMessage,
       shareWishlistItem,
@@ -135,61 +165,49 @@
     const auth = getAuth(app);
 
     /* ── State ── */
-    let myUid         = null;
-    let myPhoto       = sessionStorage.getItem('userPhoto') || '';
-    let activeChatId  = null;
-    let activeFriend  = null;   // { uid, username, photoURL }
+    let myUid        = null;
+    let myPhoto      = sessionStorage.getItem('userPhoto') || '';
+    let activeChatId = null;
+    let activeFriend = null;
     let unsubMessages = null;
-    let allWishlist   = [];
-    let friends       = [];
+    let allWishlist  = [];
+    let friends      = [];
 
     /* ── DOM refs ── */
-    const sidebarList     = document.getElementById('sidebarList');
-    const emptyState      = document.getElementById('emptyState');
-    const activeConvo     = document.getElementById('activeConvo');
-    const chatMessages    = document.getElementById('chatMessages');
-    const headerAvatar    = document.getElementById('headerAvatar');
-    const headerName      = document.getElementById('headerName');
-    const headerWishlist  = document.getElementById('headerWishlistLink');
-    const msgInput        = document.getElementById('msgInput');
-    const sendBtn         = document.getElementById('sendBtn');
-    const shareBtn        = document.getElementById('shareBtn');
-    const shareOverlay    = document.getElementById('shareOverlay');
-    const shareClose      = document.getElementById('shareClose');
-    const shareSearch     = document.getElementById('shareSearch');
-    const shareGrid       = document.getElementById('shareGrid');
-    const sidebarToggle   = document.getElementById('sidebarToggle');
-    const chatSidebar     = document.getElementById('chatSidebar');
+    const sidebarList   = document.getElementById('sidebarList');
+    const requestsList  = document.getElementById('requestsList');
+    const reqBadge      = document.getElementById('reqBadge');
+    const emptyState    = document.getElementById('emptyState');
+    const activeConvo   = document.getElementById('activeConvo');
+    const chatMessages  = document.getElementById('chatMessages');
+    const headerAvatar  = document.getElementById('headerAvatar');
+    const headerName    = document.getElementById('headerName');
+    const headerWishlist = document.getElementById('headerWishlistLink');
+    const msgInput      = document.getElementById('msgInput');
+    const sendBtn       = document.getElementById('sendBtn');
+    const shareBtn      = document.getElementById('shareBtn');
+    const shareOverlay  = document.getElementById('shareOverlay');
+    const shareClose    = document.getElementById('shareClose');
+    const shareSearch   = document.getElementById('shareSearch');
+    const shareGrid     = document.getElementById('shareGrid');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const chatSidebar   = document.getElementById('chatSidebar');
+    const findInput     = document.getElementById('findInput');
+    const findBtn       = document.getElementById('findBtn');
+    const findResult    = document.getElementById('findResult');
 
     /* ── Helpers ── */
     function esc(s) {
       return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
-
     function avatarHtml(photoURL, size = 38) {
       if (photoURL) return `<img src="${esc(photoURL)}" alt="" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;">`;
       return `<i class="fa-solid fa-circle-user"></i>`;
     }
-
-    function fmtTime(ts) {
-      if (!ts) return '';
-      const d = ts.toDate ? ts.toDate() : new Date(ts);
-      const now = new Date();
-      if (d.toDateString() === now.toDateString()) {
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      }
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    }
-
     function fmtMsgTime(ts) {
       if (!ts) return '';
       const d = ts.toDate ? ts.toDate() : new Date(ts);
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-
-    function typeColor(type) {
-      const map = { anime:'#ff6b6b', manga:'#6bceff', manhwa:'#a78bfa', manhua:'#fb923c', movie:'#4ade80', novel:'#facc15' };
-      return map[(type||'').toLowerCase()] || '#ff9999';
     }
 
     /* ── Wait for auth ── */
@@ -201,7 +219,22 @@
       });
     });
 
-    /* ── Load friends into sidebar ── */
+    /* ── Sidebar tabs ── */
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const key = tab.dataset.tab;
+        document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelectorAll('.sidebar-panel').forEach(p => p.style.display = 'none');
+        document.getElementById(`panel-${key}`).style.display = 'flex';
+
+        if (key === 'requests') loadRequests();
+      });
+    });
+
+    /* ══════════════════════════════════════════════════════════
+       TAB 1 — CHATS (friends list)
+    ══════════════════════════════════════════════════════════ */
     async function loadSidebar() {
       try {
         friends = await getFriends();
@@ -209,7 +242,9 @@
           sidebarList.innerHTML = `<div class="chat-sidebar-empty">
             <i class="fa-solid fa-user-group"></i>
             No friends yet.<br>
-            <a href="friends.html" style="color:#ff9999;font-size:11px;">Add friends</a>
+            <span style="color:rgba(255,255,255,0.3);font-size:11px;font-family:Arial,sans-serif;">
+              Use the Find tab to add friends.
+            </span>
           </div>`;
           return;
         }
@@ -224,13 +259,12 @@
           </div>
         `).join('');
 
-        // Attach click handlers
         friends.forEach(f => {
           document.getElementById(`sidebar-${f.uid}`)
             .addEventListener('click', () => openChat(f));
         });
 
-        // Open from URL param
+        // Auto-open from URL param
         const paramUid = new URLSearchParams(location.search).get('uid');
         if (paramUid) {
           const target = friends.find(f => f.uid === paramUid);
@@ -242,41 +276,166 @@
       }
     }
 
-    /* ── Open conversation ── */
+    /* ══════════════════════════════════════════════════════════
+       TAB 2 — REQUESTS
+    ══════════════════════════════════════════════════════════ */
+    async function loadRequests() {
+      requestsList.innerHTML = `<div class="chat-sidebar-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>`;
+      try {
+        const reqs = await getFriendRequests();
+
+        // Update badge
+        if (reqs.length) {
+          reqBadge.textContent = reqs.length;
+          reqBadge.style.display = 'inline-flex';
+          sessionStorage.setItem('friendReqCount', reqs.length);
+        } else {
+          reqBadge.style.display = 'none';
+          sessionStorage.setItem('friendReqCount', '0');
+        }
+
+        if (!reqs.length) {
+          requestsList.innerHTML = `<div class="chat-sidebar-empty">
+            <i class="fa-solid fa-bell-slash"></i>
+            No pending requests.
+          </div>`;
+          return;
+        }
+
+        requestsList.innerHTML = reqs.map(r => `
+          <div class="req-card" id="req-${r.fromUid || r.id}">
+            <div class="req-avatar">${avatarHtml(r.photoURL, 40)}</div>
+            <div class="req-info">
+              <div class="req-name">${esc(r.username || r.fromUid)}</div>
+              <div class="req-sub">wants to be friends</div>
+            </div>
+            <div class="req-actions">
+              <button class="req-btn accept" onclick="window.__accept('${r.fromUid || r.id}', '${esc(r.username)}', '${esc(r.photoURL)}', this)">
+                <i class="fa-solid fa-check"></i>
+              </button>
+              <button class="req-btn decline" onclick="window.__decline('${r.fromUid || r.id}', this)">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        requestsList.innerHTML = `<div class="chat-sidebar-empty">Failed to load requests.</div>`;
+        console.error(err);
+      }
+    }
+
+    window.__accept = async (fromUid, username, photoURL, btn) => {
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        await acceptFriendRequest(fromUid, { username, photoURL });
+        document.getElementById(`req-${fromUid}`)?.remove();
+        // Refresh friends list
+        await loadSidebar();
+        // Update badge
+        const remaining = requestsList.querySelectorAll('.req-card').length;
+        reqBadge.textContent = remaining;
+        if (!remaining) {
+          reqBadge.style.display = 'none';
+          requestsList.innerHTML = `<div class="chat-sidebar-empty"><i class="fa-solid fa-bell-slash"></i> No pending requests.</div>`;
+        }
+      } catch (err) {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        console.error(err);
+      }
+    };
+
+    window.__decline = async (fromUid, btn) => {
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+      try {
+        await declineFriendRequest(fromUid);
+        document.getElementById(`req-${fromUid}`)?.remove();
+        const remaining = requestsList.querySelectorAll('.req-card').length;
+        reqBadge.textContent = remaining;
+        if (!remaining) {
+          reqBadge.style.display = 'none';
+          requestsList.innerHTML = `<div class="chat-sidebar-empty"><i class="fa-solid fa-bell-slash"></i> No pending requests.</div>`;
+        }
+      } catch (err) {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      }
+    };
+
+    /* ══════════════════════════════════════════════════════════
+       TAB 3 — FIND FRIENDS
+    ══════════════════════════════════════════════════════════ */
+    async function doFind() {
+      const q = findInput.value.trim();
+      if (!q) return;
+      findResult.innerHTML = `<div class="chat-sidebar-empty"><i class="fa-solid fa-spinner fa-spin"></i> Searching…</div>`;
+      try {
+        const user = await searchUserByUsername(q);
+        if (!user) {
+          findResult.innerHTML = `<div class="chat-sidebar-empty"><i class="fa-solid fa-user-slash"></i> No user found.</div>`;
+          return;
+        }
+        if (user.uid === myUid) {
+          findResult.innerHTML = `<div class="chat-sidebar-empty">That's you!</div>`;
+          return;
+        }
+        const alreadyFriend = friends.some(f => f.uid === user.uid);
+        findResult.innerHTML = `
+          <div class="find-user-card">
+            <div class="find-user-avatar">${avatarHtml(user.photoURL, 48)}</div>
+            <div class="find-user-info">
+              <div class="find-user-name">${esc(user.username || user.uid)}</div>
+              ${alreadyFriend ? `<div class="find-user-sub already">Already friends</div>` : ''}
+            </div>
+            ${!alreadyFriend ? `
+              <button class="find-add-btn" id="findAddBtn"
+                onclick="window.__sendReq('${user.uid}', this)">
+                <i class="fa-solid fa-user-plus"></i> Add
+              </button>` : ''}
+          </div>`;
+      } catch (err) {
+        findResult.innerHTML = `<div class="chat-sidebar-empty">Search failed. Try again.</div>`;
+      }
+    }
+
+    window.__sendReq = async (toUid, btn) => {
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+      try {
+        await sendFriendRequest(toUid);
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Sent!';
+        btn.classList.add('sent');
+      } catch (err) {
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Add';
+        console.error(err);
+      }
+    };
+
+    findBtn.addEventListener('click', doFind);
+    findInput.addEventListener('keydown', e => { if (e.key === 'Enter') doFind(); });
+
+    /* ══════════════════════════════════════════════════════════
+       CHAT — Open conversation
+    ══════════════════════════════════════════════════════════ */
     async function openChat(friend) {
-      // Update active state in sidebar
       document.querySelectorAll('.chat-sidebar-item').forEach(el => el.classList.remove('active'));
       document.getElementById(`sidebar-${friend.uid}`)?.classList.add('active');
 
-      // Update header
       activeFriend = friend;
       headerAvatar.innerHTML = friend.photoURL
         ? `<img src="${esc(friend.photoURL)}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">`
         : `<i class="fa-solid fa-circle-user"></i>`;
       headerName.textContent = friend.username || friend.uid;
-      headerWishlist.href = `friends.html#wishlist-${friend.uid}`;
+      headerWishlist.href    = `friends.html?view=wishlist&uid=${friend.uid}`;
 
-      // Show conversation panel
-      emptyState.style.display = 'none';
+      emptyState.style.display  = 'none';
       activeConvo.style.display = 'flex';
-
-      // Enable input
       msgInput.disabled = false;
-
-      // Clear old messages + show spinner
       chatMessages.innerHTML = `<div class="chat-loading"><div class="chat-spinner"></div></div>`;
 
-      // Unsubscribe previous listener
       if (unsubMessages) { unsubMessages(); unsubMessages = null; }
 
       try {
-        // Get or create chat doc
         activeChatId = await getOrCreateChat(friend.uid);
-
-        // Subscribe to real-time messages
-        unsubMessages = listenToMessages(activeChatId, (msgs) => {
-          renderMessages(msgs);
-        });
+        unsubMessages = listenToMessages(activeChatId, renderMessages);
       } catch (err) {
         console.error('Failed to open chat:', err);
         chatMessages.innerHTML = `
@@ -288,7 +447,6 @@
           </div>`;
       }
 
-      // Mobile: close sidebar
       chatSidebar.classList.remove('open');
       msgInput.focus();
     }
@@ -305,21 +463,19 @@
         return;
       }
 
-      let html = '';
-      let lastDate = '';
-      let lastSender = '';
-
+      let html = '', lastDate = '', lastSender = '';
       msgs.forEach(msg => {
-        const isMine = msg.senderUid === myUid;
-        const ts = msg.sentAt;
+        const isMine  = msg.senderUid === myUid;
+        const ts      = msg.sentAt;
         const timeStr = fmtMsgTime(ts);
-
-        // Date divider
-        const d = ts?.toDate ? ts.toDate() : new Date();
+        const d       = ts?.toDate ? ts.toDate() : new Date();
         const dateStr = d.toDateString();
+
         if (dateStr !== lastDate) {
           lastDate = dateStr;
-          const label = dateStr === new Date().toDateString() ? 'Today' : d.toLocaleDateString([], { weekday:'long', month:'short', day:'numeric' });
+          const label = dateStr === new Date().toDateString()
+            ? 'Today'
+            : d.toLocaleDateString([], { weekday:'long', month:'short', day:'numeric' });
           html += `<div class="msg-date-divider"><span>${label}</span></div>`;
         }
 
@@ -352,7 +508,7 @@
                   <div class="wc-info">
                     <div class="wc-title">${esc(item.title)}</div>
                     <div class="wc-meta">
-                      ${item.type ? `<span class="wc-badge type">${esc(item.type.toUpperCase())}</span>` : ''}
+                      ${item.type   ? `<span class="wc-badge type">${esc(item.type.toUpperCase())}</span>` : ''}
                       ${item.status ? `<span class="wc-badge">${esc(item.status)}</span>` : ''}
                       ${item.rating != null ? `<span class="wc-badge rating">★ ${item.rating}</span>` : ''}
                     </div>
@@ -362,16 +518,14 @@
                   ${item.site_url
                     ? `<a href="${esc(item.site_url)}" target="_blank" rel="noopener" class="wc-btn">
                         <i class="fa-solid fa-arrow-up-right-from-square"></i> Source
-                       </a>`
-                    : ''}
+                       </a>` : ''}
                   ${!isMine
                     ? `<button class="wc-btn add" data-item='${JSON.stringify({
                           title: item.title, type: item.type, genre: item.genre,
                           cover_path: item.cover_path, site_url: item.site_url,
                         })}' onclick="window.__addToLibrary(this)">
                          <i class="fa-solid fa-plus"></i> Add to Library
-                       </button>`
-                    : ''}
+                       </button>` : ''}
                 </div>
               </div>
               <span class="msg-time">${timeStr}</span>
@@ -381,27 +535,20 @@
 
       chatMessages.innerHTML = html;
 
-      // Check existing library for "Add to Library" buttons
       chatMessages.querySelectorAll('.wc-btn.add').forEach(async btn => {
         try {
           const item = JSON.parse(btn.dataset.item || '{}');
-          if (item.title) {
-            const exists = await checkWishlistTitleExists(item.title);
-            if (exists) {
-              btn.textContent = '';
-              btn.innerHTML = '<i class="fa-solid fa-check"></i> In Library';
-              btn.classList.replace('add', 'added');
-              btn.disabled = true;
-            }
+          if (item.title && await checkWishlistTitleExists(item.title)) {
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> In Library';
+            btn.classList.replace('add', 'added');
+            btn.disabled = true;
           }
         } catch {}
       });
 
-      // Scroll to bottom
       chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    /* ── Add to Library from chat card ── */
     window.__addToLibrary = async (btn) => {
       const item = JSON.parse(btn.dataset.item || '{}');
       if (!item.title) return;
@@ -417,7 +564,6 @@
       } catch (err) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-plus"></i> Add to Library';
-        console.error(err);
       }
     };
 
@@ -430,7 +576,6 @@
       try {
         await sendTextMessage(activeChatId, text);
       } catch (err) {
-        console.error('Send failed:', err);
         msgInput.value = text;
       } finally {
         sendBtn.disabled = false;
@@ -446,33 +591,27 @@
       sendBtn.disabled = msgInput.value.trim().length === 0;
     });
 
-    /* ── Share modal ── */
+    /* ── Share wishlist modal ── */
     async function openShareModal() {
       if (!activeChatId) return;
       shareOverlay.classList.add('open');
       shareSearch.value = '';
       shareGrid.innerHTML = `<div class="share-modal-empty"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div>`;
       shareSearch.focus();
-
       try {
         allWishlist = await getWishlist();
         renderShareGrid(allWishlist);
-      } catch (err) {
+      } catch {
         shareGrid.innerHTML = `<div class="share-modal-empty">Failed to load wishlist.</div>`;
       }
     }
 
     function renderShareGrid(items) {
-      if (!items.length) {
-        shareGrid.innerHTML = `<div class="share-modal-empty">Nothing found.</div>`;
-        return;
-      }
+      if (!items.length) { shareGrid.innerHTML = `<div class="share-modal-empty">Nothing found.</div>`; return; }
       shareGrid.innerHTML = items.map(item => `
         <div class="share-item" data-id="${item.id}" title="${esc(item.title)}">
           <div class="share-item-cover">
-            ${item.cover_path
-              ? `<img src="${esc(item.cover_path)}" alt="" loading="lazy" />`
-              : `<i class="fa-solid fa-image"></i>`}
+            ${item.cover_path ? `<img src="${esc(item.cover_path)}" alt="" loading="lazy" />` : `<i class="fa-solid fa-image"></i>`}
           </div>
           <div class="share-item-info">
             <div class="share-item-title">${esc(item.title)}</div>
@@ -483,45 +622,42 @@
 
       shareGrid.querySelectorAll('.share-item').forEach(el => {
         el.addEventListener('click', async () => {
-          const id   = el.dataset.id;
-          const item = allWishlist.find(i => i.id === id);
+          const item = allWishlist.find(i => i.id === el.dataset.id);
           if (!item) return;
           closeShareModal();
-          try {
-            await shareWishlistItem(activeChatId, item);
-          } catch (err) {
-            console.error('Share failed:', err);
-          }
+          try { await shareWishlistItem(activeChatId, item); } catch {}
         });
       });
     }
 
-    function closeShareModal() {
-      shareOverlay.classList.remove('open');
-    }
+    function closeShareModal() { shareOverlay.classList.remove('open'); }
 
     shareBtn.addEventListener('click', openShareModal);
     shareClose.addEventListener('click', closeShareModal);
     shareOverlay.addEventListener('click', e => { if (e.target === shareOverlay) closeShareModal(); });
-
     shareSearch.addEventListener('input', () => {
       const q = shareSearch.value.trim().toLowerCase();
-      const filtered = q
-        ? allWishlist.filter(i => (i.title || '').toLowerCase().includes(q) || (i.type || '').toLowerCase().includes(q))
-        : allWishlist;
-      renderShareGrid(filtered);
+      renderShareGrid(q ? allWishlist.filter(i =>
+        (i.title||'').toLowerCase().includes(q) || (i.type||'').toLowerCase().includes(q)
+      ) : allWishlist);
     });
 
     /* ── Mobile sidebar toggle ── */
     sidebarToggle.addEventListener('click', () => chatSidebar.classList.toggle('open'));
     document.addEventListener('click', e => {
-      if (!chatSidebar.contains(e.target) && !sidebarToggle.contains(e.target)) {
+      if (!chatSidebar.contains(e.target) && !sidebarToggle.contains(e.target))
         chatSidebar.classList.remove('open');
-      }
     });
 
     /* ── Init ── */
     await loadSidebar();
+
+    // Show request badge count from sessionStorage on load
+    const cachedReqCount = parseInt(sessionStorage.getItem('friendReqCount') || '0');
+    if (cachedReqCount > 0) {
+      reqBadge.textContent = cachedReqCount;
+      reqBadge.style.display = 'inline-flex';
+    }
   </script>
 
 </body>

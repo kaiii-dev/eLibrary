@@ -78,7 +78,7 @@
     { href: 'explore.html',  label: 'Explore',  icon: 'fa-compass',       key: 'explore'  },
     { href: 'home.html',     label: 'Home',     icon: 'fa-house',         key: 'home'     },
     { href: 'platform.html', label: 'Platform', icon: 'fa-circle-play',   key: 'platform' },
-    { href: 'friends.html',  label: 'Friends',  icon: 'fa-user-group',    key: 'friends'  },
+    { href: 'chat.html',     label: 'Friends',  icon: 'fa-user-group',    key: 'friends'  },
   ];
 
   const secondaryLinks = [
