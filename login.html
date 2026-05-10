@@ -30,6 +30,12 @@
         <p class="login-sub" id="formSubtitle">Welcome back</p>
       </div>
 
+      <!-- Email verify notice (shown when redirected with ?verify=1) -->
+      <div id="verifyBanner" class="verify-banner" style="display:none;">
+        <i class="fa-solid fa-envelope-circle-check"></i>
+        Please verify your email before logging in. Check your inbox.
+      </div>
+
       <!-- Form -->
       <form id="loginForm" autocomplete="off">
 
@@ -52,6 +58,13 @@
               <i class="fa-solid fa-eye"></i>
             </button>
           </div>
+          <!-- Password strength — register mode only -->
+          <div class="pw-strength" id="pwStrength" style="display:none;">
+            <div class="pw-strength-bar">
+              <div class="pw-strength-fill" id="pwStrengthFill"></div>
+            </div>
+            <span class="pw-strength-label" id="pwStrengthLabel"></span>
+          </div>
         </div>
 
         <!-- Confirm password — only shown in register mode -->
@@ -69,14 +82,32 @@
           <i class="fa-solid fa-arrow-right-to-bracket" id="btnIcon"></i>
         </button>
 
-        <p style="text-align:center; margin-top:1rem; font-size:0.85rem; color:var(--text-muted, #aaa);">
-          <span id="toggleMsg">Don't have an account?</span>
-          <a href="#" id="toggleLink" style="color:var(--accent, #ff6b6b); text-decoration:none; font-weight:600;">
-            Create one
-          </a>
-        </p>
+        <div class="form-footer">
+          <p class="toggle-row">
+            <span id="toggleMsg">Don't have an account?</span>
+            <a href="#" id="toggleLink" class="toggle-link">Create one</a>
+          </p>
+          <div id="forgotWrap">
+            <button type="button" class="forgot-link" id="forgotBtn">Forgot password?</button>
+          </div>
+        </div>
 
       </form>
+
+      <!-- Reset password panel -->
+      <div class="reset-panel" id="resetPanel">
+        <p class="reset-panel-title"><i class="fa-solid fa-key"></i> Reset Password</p>
+        <p class="reset-panel-sub">Enter your email and we'll send a reset link.</p>
+        <input type="email" id="resetEmail" placeholder="Your email address" />
+        <div id="resetMsg" class="reset-msg"></div>
+        <div class="reset-panel-actions">
+          <button type="button" class="reset-send-btn" id="resetSendBtn">
+            <i class="fa-solid fa-paper-plane"></i> Send Link
+          </button>
+          <button type="button" class="reset-cancel-btn" id="resetCancelBtn">Cancel</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -84,7 +115,8 @@
     import { initializeApp, getApps, getApp }
       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword,
-             createUserWithEmailAndPassword, onAuthStateChanged, updateProfile }
+             createUserWithEmailAndPassword, onAuthStateChanged, updateProfile,
+             sendEmailVerification, sendPasswordResetEmail, signOut }
       from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
     import { checkUsernameAvailable, claimUsername, upsertPublicProfile }
       from "./js/firebase-service.js";
@@ -93,60 +125,85 @@
     const app  = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
-    // Redirect if already logged in
+    // Only redirect if logged in AND email verified
     onAuthStateChanged(auth, (user) => {
-      if (user) {
+      if (user && user.emailVerified) {
         sessionStorage.setItem('userEmail', user.email);
         window.location.replace('explore.html');
       }
     });
 
     /* ── DOM refs ── */
-    const form          = document.getElementById('loginForm');
-    const card          = document.getElementById('loginCard');
-    const loginBtn      = document.getElementById('loginBtn');
-    const btnText       = document.getElementById('btnText');
-    const btnIcon       = document.getElementById('btnIcon');
-    const emailInput    = document.getElementById('email');
-    const pwInput       = document.getElementById('password');
-    const pwToggle      = document.getElementById('pwToggle');
-    const confirmInput  = document.getElementById('confirmPassword');
-    const confirmGroup  = document.getElementById('confirmGroup');
-    const usernameInput = document.getElementById('regUsername');
-    const usernameGroup = document.getElementById('usernameGroup');
-    const errMsg        = document.getElementById('errMsg');
-    const formSubtitle  = document.getElementById('formSubtitle');
-    const toggleLink    = document.getElementById('toggleLink');
-    const toggleMsg     = document.getElementById('toggleMsg');
+    const form            = document.getElementById('loginForm');
+    const card            = document.getElementById('loginCard');
+    const loginBtn        = document.getElementById('loginBtn');
+    const btnText         = document.getElementById('btnText');
+    const btnIcon         = document.getElementById('btnIcon');
+    const emailInput      = document.getElementById('email');
+    const pwInput         = document.getElementById('password');
+    const pwToggle        = document.getElementById('pwToggle');
+    const confirmInput    = document.getElementById('confirmPassword');
+    const confirmGroup    = document.getElementById('confirmGroup');
+    const usernameInput   = document.getElementById('regUsername');
+    const usernameGroup   = document.getElementById('usernameGroup');
+    const errMsg          = document.getElementById('errMsg');
+    const formSubtitle    = document.getElementById('formSubtitle');
+    const toggleLink      = document.getElementById('toggleLink');
+    const toggleMsg       = document.getElementById('toggleMsg');
+    const verifyBanner    = document.getElementById('verifyBanner');
+    const forgotWrap      = document.getElementById('forgotWrap');
+    const forgotBtn       = document.getElementById('forgotBtn');
+    const resetPanel      = document.getElementById('resetPanel');
+    const resetEmail      = document.getElementById('resetEmail');
+    const resetSendBtn    = document.getElementById('resetSendBtn');
+    const resetCancelBtn  = document.getElementById('resetCancelBtn');
+    const resetMsg        = document.getElementById('resetMsg');
+    const pwStrength      = document.getElementById('pwStrength');
+    const pwStrengthFill  = document.getElementById('pwStrengthFill');
+    const pwStrengthLabel = document.getElementById('pwStrengthLabel');
 
     let isRegisterMode = false;
+
+    // Show verify banner if redirected from auth-guard
+    if (new URLSearchParams(location.search).get('verify') === '1') {
+      verifyBanner.style.display = 'flex';
+    }
 
     /* ── Toggle login / register ── */
     toggleLink.addEventListener('click', (e) => {
       e.preventDefault();
       isRegisterMode = !isRegisterMode;
       errMsg.textContent = '';
+      errMsg.className = 'err-msg';
+      verifyBanner.style.display = 'none';
+      closeReset();
 
       if (isRegisterMode) {
-        formSubtitle.textContent      = 'Create your account';
-        btnText.textContent           = 'Create Account';
-        btnIcon.className             = 'fa-solid fa-user-plus';
-        usernameGroup.style.display   = '';
-        usernameInput.required        = true;
-        confirmGroup.style.display    = '';
-        confirmInput.required         = true;
-        toggleMsg.textContent         = 'Already have an account?';
-        toggleLink.textContent        = 'Login';
+        formSubtitle.textContent    = 'Create your account';
+        btnText.textContent         = 'Create Account';
+        btnIcon.className           = 'fa-solid fa-user-plus';
+        usernameGroup.style.display = '';
+        usernameInput.required      = true;
+        confirmGroup.style.display  = '';
+        confirmInput.required       = true;
+        toggleMsg.textContent       = 'Already have an account?';
+        toggleLink.textContent      = 'Login';
+        forgotWrap.style.display    = 'none';
+        pwStrength.style.display    = 'block';
       } else {
-        formSubtitle.textContent      = 'Welcome back';
-        btnText.textContent           = 'Login';
-        btnIcon.className             = 'fa-solid fa-arrow-right-to-bracket';
-        usernameGroup.style.display   = 'none';
-        usernameInput.required        = false;
-        confirmGroup.style.display    = 'none';
-        confirmInput.required         = false;
-        toggleMsg.textContent         = "Don't have an account?";
-        toggleLink.textContent        = 'Create one';
+        formSubtitle.textContent    = 'Welcome back';
+        btnText.textContent         = 'Login';
+        btnIcon.className           = 'fa-solid fa-arrow-right-to-bracket';
+        usernameGroup.style.display = 'none';
+        usernameInput.required      = false;
+        confirmGroup.style.display  = 'none';
+        confirmInput.required       = false;
+        toggleMsg.textContent       = "Don't have an account?";
+        toggleLink.textContent      = 'Create one';
+        forgotWrap.style.display    = '';
+        pwStrength.style.display    = 'none';
+        pwStrengthFill.style.width  = '0%';
+        pwStrengthLabel.textContent = '';
       }
     });
 
@@ -157,6 +214,78 @@
       pwToggle.querySelector('i').className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
     });
 
+    /* ── Password strength meter ── */
+    pwInput.addEventListener('input', () => {
+      if (!isRegisterMode) return;
+      const val = pwInput.value;
+      const score = getStrength(val);
+      const levels = [
+        { label: '',          color: '#333',    width: '0%'   },
+        { label: 'Too short', color: '#555',    width: '15%'  },
+        { label: 'Weak',      color: '#e53935', width: '30%'  },
+        { label: 'Fair',      color: '#fb8c00', width: '60%'  },
+        { label: 'Good',      color: '#43a047', width: '80%'  },
+        { label: 'Strong',    color: '#00897b', width: '100%' },
+      ];
+      const level = levels[score];
+      pwStrengthFill.style.width      = level.width;
+      pwStrengthFill.style.background = level.color;
+      pwStrengthLabel.textContent     = level.label;
+      pwStrengthLabel.style.color     = level.color;
+    });
+
+    function getStrength(pw) {
+      if (pw.length === 0) return 0;
+      if (pw.length < 6)   return 1;
+      let score = 2;
+      if (pw.length >= 8)              score++;
+      if (/[A-Z]/.test(pw))           score++;
+      if (/[0-9]/.test(pw))           score++;
+      if (/[^A-Za-z0-9]/.test(pw))    score++;
+      return Math.min(score, 5);
+    }
+
+    /* ── Forgot password panel ── */
+    function openReset() {
+      resetPanel.classList.add('open');
+      resetMsg.textContent = '';
+      resetMsg.className = 'reset-msg';
+      resetEmail.value = emailInput.value;
+      resetSendBtn.disabled = false;
+      resetSendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Link';
+      resetEmail.focus();
+    }
+    function closeReset() {
+      resetPanel.classList.remove('open');
+    }
+
+    forgotBtn.addEventListener('click', openReset);
+    resetCancelBtn.addEventListener('click', closeReset);
+
+    resetSendBtn.addEventListener('click', async () => {
+      const email = resetEmail.value.trim();
+      if (!email) {
+        resetMsg.textContent = 'Enter your email address.';
+        resetMsg.className = 'reset-msg error';
+        return;
+      }
+      resetSendBtn.disabled = true;
+      resetSendBtn.textContent = 'Sending...';
+      try {
+        await sendPasswordResetEmail(auth, email);
+        resetMsg.textContent = 'Reset link sent! Check your inbox.';
+        resetMsg.className = 'reset-msg success';
+        resetSendBtn.textContent = 'Sent!';
+      } catch (err) {
+        resetMsg.textContent = err.code === 'auth/user-not-found'
+          ? 'No account found with this email.'
+          : 'Failed to send. Try again.';
+        resetMsg.className = 'reset-msg error';
+        resetSendBtn.disabled = false;
+        resetSendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Link';
+      }
+    });
+
     /* ── Form submit ── */
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -164,8 +293,14 @@
       const pass     = pwInput.value;
       const username = usernameInput.value.trim();
 
+      errMsg.className = 'err-msg';
+
       if (isRegisterMode && pass !== confirmInput.value) {
         errMsg.textContent = 'Passwords do not match.';
+        return;
+      }
+      if (isRegisterMode && pass.length < 6) {
+        errMsg.textContent = 'Password must be at least 6 characters.';
         return;
       }
 
@@ -196,33 +331,76 @@
           await updateProfile(user, { displayName: username });
           await claimUsername(username, '');
           await upsertPublicProfile({ ...user, displayName: username });
+          await sendEmailVerification(user);
+          await signOut(auth);
+
+          // Show success — don't redirect, ask them to verify first
+          loginBtn.classList.add('success');
+          btnText.textContent = 'Check your email!';
+          btnIcon.className   = 'fa-solid fa-envelope';
+          errMsg.className    = 'err-msg success';
+          errMsg.textContent  = 'Account created! Verify your email before logging in.';
+
+          // Reset to login mode after 3 seconds
+          setTimeout(() => {
+            isRegisterMode          = false;
+            formSubtitle.textContent    = 'Welcome back';
+            btnText.textContent         = 'Login';
+            btnIcon.className           = 'fa-solid fa-arrow-right-to-bracket';
+            usernameGroup.style.display = 'none';
+            usernameInput.required      = false;
+            confirmGroup.style.display  = 'none';
+            confirmInput.required       = false;
+            toggleMsg.textContent       = "Don't have an account?";
+            toggleLink.textContent      = 'Create one';
+            forgotWrap.style.display    = '';
+            pwStrength.style.display    = 'none';
+            loginBtn.classList.remove('success');
+            loginBtn.disabled           = false;
+            errMsg.className            = 'err-msg';
+            errMsg.textContent          = '';
+            form.reset();
+          }, 3000);
+
         } else {
-          await signInWithEmailAndPassword(auth, email, pass);
+          const { user } = await signInWithEmailAndPassword(auth, email, pass);
+          if (!user.emailVerified) {
+            await signOut(auth);
+            shake();
+            errMsg.textContent  = 'Please verify your email first. Check your inbox.';
+            loginBtn.disabled   = false;
+            btnText.textContent = 'Login';
+            return;
+          }
+          loginBtn.classList.add('success');
+          btnText.textContent = 'Welcome!';
+          // onAuthStateChanged handles the redirect
         }
-        // onAuthStateChanged will handle the redirect
-        loginBtn.classList.add('success');
-        btnText.textContent = 'Welcome!';
       } catch (err) {
-        card.classList.remove('shake');
-        void card.offsetWidth;
-        card.classList.add('shake');
+        shake();
         errMsg.textContent  = friendlyError(err.code);
         loginBtn.disabled   = false;
         btnText.textContent = isRegisterMode ? 'Create Account' : 'Login';
       }
     });
 
+    function shake() {
+      card.classList.remove('shake');
+      void card.offsetWidth;
+      card.classList.add('shake');
+    }
+
     /* ── Firebase error → readable message ── */
     function friendlyError(code) {
       switch (code) {
-        case 'auth/invalid-email':            return 'Invalid email address.';
-        case 'auth/user-not-found':           return 'No account found with this email.';
-        case 'auth/wrong-password':           return 'Incorrect password.';
-        case 'auth/invalid-credential':       return 'Invalid email or password.';
-        case 'auth/email-already-in-use':     return 'This email is already registered.';
-        case 'auth/weak-password':            return 'Password must be at least 6 characters.';
-        case 'auth/too-many-requests':        return 'Too many attempts. Try again later.';
-        default:                              return 'Something went wrong. Please try again.';
+        case 'auth/invalid-email':        return 'Invalid email address.';
+        case 'auth/user-not-found':       return 'No account found with this email.';
+        case 'auth/wrong-password':       return 'Incorrect password.';
+        case 'auth/invalid-credential':   return 'Invalid email or password.';
+        case 'auth/email-already-in-use': return 'This email is already registered.';
+        case 'auth/weak-password':        return 'Password must be at least 6 characters.';
+        case 'auth/too-many-requests':    return 'Too many attempts. Try again later.';
+        default:                          return 'Something went wrong. Please try again.';
       }
     }
   </script>

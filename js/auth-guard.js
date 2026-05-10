@@ -8,9 +8,13 @@ const app  = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.replace('login.html');
+  } else if (!user.emailVerified) {
+    // Sign out unverified sessions and redirect with a prompt to verify
+    await signOut(auth);
+    window.location.replace('login.html?verify=1');
   } else {
     sessionStorage.setItem('userEmail',  user.email        || '');
     sessionStorage.setItem('userName',   user.displayName  || '');
@@ -29,12 +33,11 @@ onAuthStateChanged(auth, (user) => {
       .then(snap => sessionStorage.setItem('friendReqCount', snap.size))
       .catch(() => {});
 
-    // Sync public profile so others can discover this user
+    // Sync public profile — email intentionally excluded (not public)
     setDoc(doc(db, "profiles", user.uid), {
       uid:       user.uid,
-      email:     user.email     || '',
       username:  user.displayName || '',
-      photoURL:  user.photoURL  || '',
+      photoURL:  user.photoURL    || '',
       updatedAt: serverTimestamp()
     }, { merge: true }).catch(() => {});
 

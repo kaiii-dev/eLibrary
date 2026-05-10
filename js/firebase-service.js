@@ -435,9 +435,8 @@ export async function getCurrentUid() {
 export async function upsertPublicProfile(user) {
   await setDoc(doc(db, "profiles", user.uid), {
     uid:       user.uid,
-    email:     user.email     || '',
     username:  user.displayName || '',
-    photoURL:  user.photoURL  || '',
+    photoURL:  user.photoURL    || '',
     updatedAt: serverTimestamp()
   }, { merge: true });
 }

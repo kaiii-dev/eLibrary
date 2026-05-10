@@ -3,32 +3,41 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Username uniqueness index — any auth user can read, owner creates/deletes their slot
+    // Note: no emailVerified required here — username is claimed during registration
+    // before the verification email is sent
     match /usernames/{username} {
       allow read:   if request.auth != null;
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
       allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
     }
 
-    // Public profiles — any auth user can read, only owner writes
+    // Public profiles — any auth user can read, only verified owner writes
+    // Note: initial profile is created during registration (pre-verification) via upsertPublicProfile;
+    // subsequent writes (auth-guard sync, profile edits) require emailVerified
     match /profiles/{uid} {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Friend requests — sender creates, recipient reads/deletes, either side can cancel
+    // Friend requests — sender creates (must be verified), recipient reads/deletes
     match /friendRequests/{toUid}/from/{fromUid} {
       allow read:   if request.auth != null && request.auth.uid == toUid;
-      allow create: if request.auth != null && request.auth.uid == fromUid;
+      allow create: if request.auth != null
+                       && request.auth.uid == fromUid
+                       && request.auth.token.email_verified;
       allow delete: if request.auth != null &&
                        (request.auth.uid == toUid || request.auth.uid == fromUid);
     }
 
-    // User's own data — full access
+    // User's own data — read: owner only; write: owner + email must be verified
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read:  if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+                      && request.auth.uid == uid
+                      && request.auth.token.email_verified;
     }
 
-    // Friends can read each other's wishlist
+    // Friends can read each other's wishlist (read-only override — no emailVerified needed to read)
     match /users/{uid}/wishlist/{docId} {
       allow read: if request.auth != null && (
         request.auth.uid == uid ||
@@ -37,36 +46,45 @@ service cloud.firestore {
     }
 
     // Accept flow: acceptor writes themselves into requester's friends list
-    // Only allowed if a pending request exists (prevents unsolicited adds)
+    // Only allowed if a pending request exists AND acceptor is verified
     match /users/{uid}/friends/{friendUid} {
-      allow create: if request.auth != null && request.auth.uid == friendUid &&
-        exists(/databases/$(database)/documents/friendRequests/$(friendUid)/from/$(uid));
+      allow create: if request.auth != null
+                       && request.auth.uid == friendUid
+                       && request.auth.token.email_verified
+                       && exists(/databases/$(database)/documents/friendRequests/$(friendUid)/from/$(uid));
       allow delete: if request.auth != null && request.auth.uid == friendUid;
     }
 
-    // Activity feed — owner writes, friends can read
+    // Activity feed — owner writes (verified), friends can read
     match /users/{uid}/activity/{docId} {
       allow read: if request.auth != null && (
         request.auth.uid == uid ||
         exists(/databases/$(database)/documents/users/$(uid)/friends/$(request.auth.uid))
       );
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+                      && request.auth.uid == uid
+                      && request.auth.token.email_verified;
     }
 
-    // Friend reviews — any auth user can read, owner writes their own entry
+    // Friend reviews — any auth user can read, verified owner writes their own entry
     match /reviews/{titleSlug}/entries/{uid} {
       allow read:  if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+                      && request.auth.uid == uid
+                      && request.auth.token.email_verified;
     }
 
-    // Community sources — any auth user can read/create, only owner can edit/delete
+    // Community platforms — any auth user can read, verified users can create,
+    // only verified creator can edit/delete their own entry
     match /community_platforms/{docId} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null &&
-                               resource.data.created_by == request.auth.uid;
+      allow create: if request.auth != null && request.auth.token.email_verified;
+      allow update, delete: if request.auth != null
+                               && request.auth.token.email_verified
+                               && resource.data.created_by == request.auth.uid;
     }
 
+    // Deny everything else
     match /{document=**} { allow read, write: if false; }
   }
 }

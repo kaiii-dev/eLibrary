@@ -258,6 +258,117 @@ form {
   animation: shake 0.5s cubic-bezier(.36,.07,.19,.97);
 }
 
+/* ── VERIFY BANNER ───────────────────────────────────────── */
+.verify-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; margin-bottom: 18px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #93c5fd;
+  font-size: 12px; letter-spacing: 0.3px;
+  line-height: 1.4;
+}
+.verify-banner i { font-size: 16px; flex-shrink: 0; }
+
+/* ── PASSWORD STRENGTH ───────────────────────────────────── */
+.pw-strength { margin-top: 8px; }
+.pw-strength-bar {
+  height: 4px; background: #1a1a1a; border-radius: 2px;
+  overflow: hidden; margin-bottom: 5px;
+}
+.pw-strength-fill {
+  height: 100%; width: 0%; border-radius: 2px;
+  transition: width .3s ease, background .3s ease;
+}
+.pw-strength-label {
+  font-size: 10px; letter-spacing: 0.5px;
+  transition: color .3s;
+}
+
+/* ── FORM FOOTER ─────────────────────────────────────────── */
+.form-footer {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 10px;
+  margin-top: 4px; text-align: center;
+}
+.toggle-row {
+  font-size: 0.85rem; color: rgba(255,255,255,0.5); margin: 0;
+}
+.toggle-link {
+  color: #ff6b6b; text-decoration: none; font-weight: 600;
+  margin-left: 4px;
+}
+.toggle-link:hover { text-decoration: underline; }
+.forgot-link {
+  font-size: 11px; color: rgba(255,255,255,0.3);
+  background: none; border: none; cursor: pointer;
+  font-family: "Bungee", Arial, sans-serif;
+  letter-spacing: 0.3px; padding: 0;
+  transition: color .15s;
+}
+.forgot-link:hover { color: rgba(255, 80, 80, 0.7); }
+
+/* ── ERR MSG SUCCESS STATE ───────────────────────────────── */
+.err-msg.success { color: #4caf50; }
+
+/* ── RESET PASSWORD PANEL ────────────────────────────────── */
+.reset-panel {
+  display: none; flex-direction: column; gap: 10px;
+  margin-top: 16px; padding: 18px 20px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+}
+.reset-panel.open { display: flex; }
+.reset-panel-title {
+  font-size: 13px; color: rgba(255,255,255,0.8);
+  display: flex; align-items: center; gap: 8px; margin: 0;
+}
+.reset-panel-title i { color: rgba(255,0,0,0.6); }
+.reset-panel-sub {
+  font-size: 11px; color: rgba(255,255,255,0.35);
+  margin: 0; line-height: 1.5;
+}
+.reset-panel input {
+  width: 100%; padding: 11px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+  color: #fff; font-family: "Bungee", Arial, sans-serif;
+  font-size: 13px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.reset-panel input:focus {
+  border-color: rgba(255,0,0,0.4);
+  box-shadow: 0 0 0 3px rgba(255,0,0,0.08);
+}
+.reset-msg {
+  font-size: 11px; min-height: 14px;
+  letter-spacing: 0.3px;
+}
+.reset-msg.success { color: #4caf50; }
+.reset-msg.error   { color: #f44336; }
+.reset-panel-actions { display: flex; gap: 8px; }
+.reset-send-btn {
+  flex: 1; padding: 10px; border-radius: 10px;
+  background: rgba(255,0,0,0.15);
+  border: 1px solid rgba(255,0,0,0.3);
+  color: #ff9999; font-family: "Bungee", Arial, sans-serif;
+  font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: background .15s;
+}
+.reset-send-btn:hover:not(:disabled) { background: rgba(255,0,0,0.25); }
+.reset-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.reset-cancel-btn {
+  padding: 10px 16px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: transparent; color: rgba(255,255,255,0.4);
+  font-family: "Bungee", Arial, sans-serif; font-size: 11px;
+  cursor: pointer; transition: color .15s;
+}
+.reset-cancel-btn:hover { color: #fff; }
+
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 480px) {
   .login-card {
