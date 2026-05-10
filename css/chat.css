@@ -10,7 +10,6 @@ body.chat-page {
   display: grid;
   grid-template-columns: 280px 1fr;
   height: calc(100vh - 60px);
-  margin-top: 60px; /* nav height */
   overflow: hidden;
 }
 
